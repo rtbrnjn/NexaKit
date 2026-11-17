@@ -6,7 +6,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,6 +87,8 @@ import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.LabeledSlider
+import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
+import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.ToolPage
 import com.mediaforge.studio.ui.components.UriImage
@@ -95,7 +97,6 @@ import com.mediaforge.studio.vm.CollageViewModel
 import com.mediaforge.studio.vm.CompressorViewModel
 import com.mediaforge.studio.vm.MockupViewModel
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.rememberHazeState
 
 enum class MediaTool(val label: String, val icon: ImageVector) {
     COMPRESS("Compressor", Icons.Rounded.Compress),
@@ -112,9 +113,9 @@ fun MediaLabScreen(
     onToolHandled: () -> Unit = {}
 ) {
     var active by rememberSaveable { mutableStateOf(MediaTool.COMPRESS) }
-    val headerHaze = rememberHazeState()
+    val chromeHaze = LocalHazeState.current
     var headerHeightPx by remember { mutableIntStateOf(0) }
-    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 8.dp
+    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 10.dp
 
     LaunchedEffect(requestedTool) {
         if (requestedTool != null) {
@@ -127,17 +128,16 @@ fun MediaLabScreen(
         AnimatedContent(
             targetState = active,
             transitionSpec = {
-                val forward = targetState.ordinal >= initialState.ordinal
-                (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { if (forward) it / 16 else -it / 16 })
+                (fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
                     .togetherWith(fadeOut(tween(180)))
             },
             label = "mediaSubTab",
             modifier = Modifier.fillMaxSize()
         ) { tool ->
             when (tool) {
-                MediaTool.COMPRESS -> CompressorTab(compressorVm, topPadding, headerHaze)
-                MediaTool.MOCKUP -> MockupTab(mockupVm, topPadding, headerHaze)
-                MediaTool.COLLAGE -> CollageTab(collageVm, topPadding, headerHaze)
+                MediaTool.COMPRESS -> CompressorTab(compressorVm, topPadding, chromeHaze)
+                MediaTool.MOCKUP -> MockupTab(mockupVm, topPadding, chromeHaze)
+                MediaTool.COLLAGE -> CollageTab(collageVm, topPadding, chromeHaze)
             }
         }
 
@@ -150,24 +150,24 @@ fun MediaLabScreen(
                 .padding(top = 12.dp, bottom = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("NexaKit · Media Lab", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
-                    Text("Offline Compressor, Mockup Framer & Collage", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
+            LiquidGlassTopHeader(
+                title = "NexaKit · Media Lab",
+                hazeState = chromeHaze,
+                trailing = {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Glass.CardFillSubtle)
+                            .border(1.dp, Glass.Emerald.copy(alpha = 0.35f), RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(6.dp).clip(CircleShape).background(Glass.Emerald))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Offline", color = Glass.TextPrimary, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-                        .border(1.dp, Glass.Emerald.copy(alpha = 0.4f), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Rounded.Shield, null, tint = Glass.Emerald, modifier = Modifier.size(13.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("Offline", color = Glass.Emerald, style = MaterialTheme.typography.labelSmall)
-                }
-            }
+            )
 
             GlassSegmentedBar(
                 items = MediaTool.entries,
@@ -175,7 +175,7 @@ fun MediaLabScreen(
                 label = { it.label },
                 icon = { it.icon },
                 onSelect = { active = it },
-                hazeState = headerHaze
+                hazeState = chromeHaze
             )
         }
     }
@@ -184,7 +184,7 @@ fun MediaLabScreen(
 // ============================================================ 1. Batch Compressor + EXIF Stripper
 
 @Composable
-private fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: HazeState) {
+private fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: HazeState?) {
     val items by vm.items.collectAsState()
     val opts by vm.options.collectAsState()
     val estimating by vm.estimating.collectAsState()
@@ -341,7 +341,7 @@ private fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: Ha
         }
 
         GlassButton(
-            text = if (items.isEmpty()) "Select Images First" else if (opts.stripExif) "Compress & Strip EXIF (${items.size})" else "Compress Images (${items.size})",
+            text = if (items.isEmpty()) "Compress Selected Files" else if (opts.stripExif) "Compress & Strip EXIF (${items.size})" else "Compress Selected Files (${items.size})",
             icon = Icons.Rounded.Download,
             enabled = items.isNotEmpty(),
             onClick = vm::compressAll,
@@ -353,7 +353,7 @@ private fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: Ha
 // ============================================================ 2. Minimalist Product Mockup Framer
 
 @Composable
-private fun MockupTab(vm: MockupViewModel, topPadding: Dp, hazeState: HazeState) {
+private fun MockupTab(vm: MockupViewModel, topPadding: Dp, hazeState: HazeState?) {
     val uri by vm.uri.collectAsState()
     val params by vm.params.collectAsState()
     val preview by vm.preview.collectAsState()
@@ -529,7 +529,7 @@ private fun MockupTab(vm: MockupViewModel, topPadding: Dp, hazeState: HazeState)
 // ============================================================ 3. Clean Grid Collage Maker
 
 @Composable
-private fun CollageTab(vm: CollageViewModel, topPadding: Dp, hazeState: HazeState) {
+private fun CollageTab(vm: CollageViewModel, topPadding: Dp, hazeState: HazeState?) {
     val photos by vm.photos.collectAsState()
     val params by vm.params.collectAsState()
     val preview by vm.preview.collectAsState()
@@ -574,9 +574,8 @@ private fun CollageTab(vm: CollageViewModel, topPadding: Dp, hazeState: HazeStat
                         Column(
                             Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(Glass.CardFillSubtle)
-                                .border(1.dp, Glass.Stroke, RoundedCornerShape(12.dp))
                                 .padding(4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {

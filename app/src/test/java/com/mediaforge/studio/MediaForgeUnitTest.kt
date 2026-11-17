@@ -5,6 +5,7 @@ import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.data.DEFAULT_MODEL
 import com.mediaforge.studio.data.RECOMMENDED_MODELS
 import com.mediaforge.studio.data.ThemeMode
+import com.mediaforge.studio.data.migrateStoredModel
 import com.mediaforge.studio.media.CanvasRatio
 import com.mediaforge.studio.media.MockupRenderer
 import com.mediaforge.studio.pdf.DocxBuilder
@@ -102,11 +103,15 @@ class MediaForgeUnitTest {
     fun presetsAndEnums_exposeExpectedOptions() {
         assertEquals(listOf("Low", "Balanced", "High"), PdfCompressPreset.entries.map { it.label })
         assertEquals(listOf("System", "Light", "Dark"), ThemeMode.entries.map { it.label })
-        assertEquals("gemini-2.5-flash", DEFAULT_MODEL)
+        assertEquals("gemini-3.8-flash", DEFAULT_MODEL)
         assertEquals(
-            listOf("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"),
+            listOf("gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-4-hydrogen"),
             RECOMMENDED_MODELS.map { it.id }
         )
+        assertEquals("gemini-3.8-flash", migrateStoredModel("gemini-2.5-flash"))
+        assertEquals("gemini-3.8-flash-lite", migrateStoredModel("gemini-2.5-flash-lite"))
+        assertEquals("gemini-4-hydrogen", migrateStoredModel("gemini-4-hydrogen"))
+        assertEquals("gemini-3.8-flash", migrateStoredModel(null))
     }
 
     @Test

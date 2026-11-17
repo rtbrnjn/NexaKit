@@ -24,17 +24,29 @@ import kotlinx.coroutines.withContext
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "mediaforge_settings")
 
-const val DEFAULT_MODEL = "gemini-2.5-flash"
+const val DEFAULT_MODEL = "gemini-3.8-flash"
 
 data class GeminiModelChoice(val id: String, val displayLabel: String)
 
 val RECOMMENDED_MODELS = listOf(
-    GeminiModelChoice("gemini-2.5-flash", "gemini-2.5-flash (Recommended - Fast)"),
-    GeminiModelChoice("gemini-2.5-flash-lite", "gemini-2.5-flash-lite (Ultra Fast)"),
-    GeminiModelChoice("gemini-2.5-pro", "gemini-2.5-pro (Deep Analysis)")
+    GeminiModelChoice("gemini-3.8-flash", "gemini-3.8-flash (Recommended - Fast)"),
+    GeminiModelChoice("gemini-3.8-flash-lite", "gemini-3.8-flash-lite (Ultra Fast)"),
+    GeminiModelChoice("gemini-4-hydrogen", "gemini-4-hydrogen (Deep Reasoning)")
 )
 
 val DEFAULT_MODELS = RECOMMENDED_MODELS.map { it.id }
+
+/** Migrates deprecated or blank stored model IDs (e.g. gemini-2.5-flash) to Gemini 3.8 Flash. */
+fun migrateStoredModel(stored: String?): String {
+    val raw = stored?.trim().orEmpty()
+    if (raw.isEmpty()) return DEFAULT_MODEL
+    val lower = raw.lowercase()
+    return when {
+        lower == "gemini-2.5-flash" || lower.startsWith("gemini-2.5-flash-") && !lower.contains("lite") -> DEFAULT_MODEL
+        lower.startsWith("gemini-2.5-flash-lite") -> "gemini-3.8-flash-lite"
+        else -> raw
+    }
+}
 
 enum class ThemeMode(val label: String) {
     SYSTEM("System"),
@@ -84,7 +96,7 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
         runCatching { ThemeMode.valueOf(raw) }.getOrDefault(ThemeMode.SYSTEM)
     }
 
-    val model: Flow<String> = ds.data.map { it[MODEL] ?: DEFAULT_MODEL }
+    val model: Flow<String> = ds.data.map { migrateStoredModel(it[MODEL]) }
     val autoShowResults: Flow<Boolean> = ds.data.map { it[AUTO_SHEET] ?: true }
     val permissionAsked: Flow<Boolean> = ds.data.map { it[PERM_ASKED] ?: false }
     val knownModels: Flow<List<String>> = ds.data.map {
@@ -101,6 +113,23 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
 
     init {
         scope.launch(Dispatchers.IO) { _apiKey.value = runCatching { secure.read() }.getOrDefault("") }
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                ds.edit { prefs ->
+                    val current = prefs[MODEL]
+                    val migrated = migrateStoredModel(current)
+                    if (current != null && migrated != current) {
+                        prefs[MODEL] = migrated
+                    } else if (current == null) {
+                        prefs[MODEL] = DEFAULT_MODEL
+                    }
+                    val rawKnown = prefs[KNOWN_MODELS]
+                    if (rawKnown != null && rawKnown.contains("gemini-2.5-flash")) {
+                        prefs[KNOWN_MODELS] = DEFAULT_MODELS.joinToString(",")
+                    }
+                }
+            }
+        }
     }
 
     suspend fun saveApiKey(key: String) = withContext(Dispatchers.IO) {

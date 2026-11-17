@@ -3,10 +3,16 @@ package com.mediaforge.studio.ui.components
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.LruCache
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,6 +83,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.core.BitmapUtils
@@ -91,84 +98,225 @@ import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** Primary Haze state carrying both ambient backdrop (zIndex 0) and scrolling UI content (zIndex 1) for floating bars. */
 val LocalHazeState = compositionLocalOf<HazeState?> { null }
 
-// ------------------------------------------------------------------ Calm Canvas Background
+/** Backdrop-only Haze state carrying only `LiquidGlassBackdrop` so cards blur glowing ambient blobs cleanly without cycles. */
+val LocalBackdropHazeState = compositionLocalOf<HazeState?> { null }
 
 @Composable
-fun LiquidBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    val bg = Glass.Bg
-    val topTint = Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.055f else 0.06f)
-    val bottomTint = Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.035f else 0.045f)
-    Box(
-        modifier
-            .fillMaxSize()
-            .background(bg)
-            .drawBehind {
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(topTint, Color.Transparent),
-                        center = Offset(size.width * 0.2f, 0f),
-                        radius = size.width * 0.9f
-                    )
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(bottomTint, Color.Transparent),
-                        center = Offset(size.width * 0.9f, size.height),
-                        radius = size.width * 0.85f
-                    )
-                )
-            },
-        content = content
-    )
+fun diagonalGlassBorder(isDark: Boolean = Glass.IsDark, strong: Boolean = false): Brush {
+    val startAlpha = when {
+        isDark && strong -> 0.42f
+        isDark -> 0.35f
+        strong -> 0.95f
+        else -> 0.88f
+    }
+    val endAlpha = when {
+        isDark -> 0.06f
+        else -> 0.16f
+    }
+    val endColor = if (isDark) Color.White else Color(0xFF94A3B8)
+    return remember(isDark, strong) {
+        Brush.linearGradient(
+            colors = listOf(Color.White.copy(alpha = startAlpha), endColor.copy(alpha = endAlpha)),
+            start = Offset.Zero,
+            end = Offset.Infinite
+        )
+    }
 }
 
-// ------------------------------------------------------------------ True Liquid Glass Bar & Segmented Tabs
+// ------------------------------------------------------------------ Breathing Ambient Mesh Backdrop
 
-/** Modifier that applies real-time Haze frosted blur (Android 12+), vertical light-reflection border, and ambient shadow. */
+@Composable
+fun LiquidGlassBackdrop(
+    modifier: Modifier = Modifier,
+    backdropHaze: HazeState? = LocalBackdropHazeState.current,
+    chromeHaze: HazeState? = LocalHazeState.current,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val bg = Glass.Bg
+    val isDark = Glass.IsDark
+    val transition = rememberInfiniteTransition(label = "ambientMesh")
+
+    val driftA by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(15_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "blobA"
+    )
+    val driftB by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(19_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "blobB"
+    )
+    val driftC by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(23_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "blobC"
+    )
+
+    val sapphire = if (isDark) Color(0xFF2563EB) else Color(0xFF7DD3FC)
+    val emerald = if (isDark) Color(0xFF10B981) else Color(0xFF6EE7B7)
+    val indigo = if (isDark) Color(0xFF6366F1) else Color(0xFFA5B4FC)
+
+    val alphaA = if (isDark) (0.26f + 0.06f * driftA) else (0.32f + 0.06f * driftA)
+    val alphaB = if (isDark) (0.22f + 0.06f * driftB) else (0.28f + 0.06f * driftB)
+    val alphaC = if (isDark) (0.17f + 0.05f * driftC) else (0.20f + 0.05f * driftC)
+
+    Box(modifier.fillMaxSize()) {
+        // Mesh blobs layer isolated as a sibling underneath screen content so Haze captures clean glow refractions.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .let { if (backdropHaze != null) it.hazeSource(backdropHaze, zIndex = 0f) else it }
+                .let { if (chromeHaze != null) it.hazeSource(chromeHaze, zIndex = 0f) else it }
+                .background(bg)
+                .drawBehind {
+                    val w = size.width
+                    val h = size.height
+                    // Soft sapphire aura top-left / mid-left
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(sapphire.copy(alpha = alphaA), Color.Transparent),
+                            center = Offset(w * (0.20f + 0.08f * driftA), h * (0.24f + 0.05f * driftB)),
+                            radius = w * 0.78f
+                        ),
+                        center = Offset(w * (0.20f + 0.08f * driftA), h * (0.24f + 0.05f * driftB)),
+                        radius = w * 0.78f
+                    )
+                    // Emerald-mint glow center-right
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(emerald.copy(alpha = alphaB), Color.Transparent),
+                            center = Offset(w * (0.82f - 0.08f * driftB), h * (0.44f + 0.07f * driftA)),
+                            radius = w * 0.72f
+                        ),
+                        center = Offset(w * (0.82f - 0.08f * driftB), h * (0.44f + 0.07f * driftA)),
+                        radius = w * 0.72f
+                    )
+                    // Soft indigo glow lower-left / bottom
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(indigo.copy(alpha = alphaC), Color.Transparent),
+                            center = Offset(w * (0.34f + 0.12f * driftC), h * (0.84f - 0.06f * driftB)),
+                            radius = w * 0.68f
+                        ),
+                        center = Offset(w * (0.34f + 0.12f * driftC), h * (0.84f - 0.06f * driftB)),
+                        radius = w * 0.68f
+                    )
+                }
+        )
+        content()
+    }
+}
+
+@Composable
+fun LiquidBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) =
+    LiquidGlassBackdrop(modifier = modifier, content = content)
+
+// ------------------------------------------------------------------ True Liquid Glass Chrome & Docks
+
+/** Applies frosted Haze blur, diagonal specular border (35%->6% white), and soft ambient elevation shadow. */
 @Composable
 fun Modifier.liquidGlassChrome(
     shape: Shape = RoundedCornerShape(28.dp),
     hazeState: HazeState? = LocalHazeState.current,
-    blurRadius: Dp = 22.dp,
-    shadowElevation: Dp = 14.dp
+    blurRadius: Dp = 24.dp,
+    shadowElevation: Dp = 14.dp,
+    tintColor: Color = Glass.NavFill,
+    strongBorder: Boolean = false
 ): Modifier {
     val isDark = Glass.IsDark
-    val navFill = Glass.NavFill
     val fallbackBg = Glass.Surface
-    val borderBrush = remember(isDark) {
-        if (isDark) {
-            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f)))
-        } else {
-            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.90f), Color.Black.copy(alpha = 0.08f)))
-        }
-    }
-    val hazeStyle = remember(fallbackBg, navFill, blurRadius) {
+    val borderBrush = diagonalGlassBorder(isDark = isDark, strong = strongBorder)
+    val hazeStyle = remember(fallbackBg, tintColor, blurRadius) {
         HazeStyle(
             backgroundColor = fallbackBg,
-            tint = HazeTint(navFill),
+            tint = HazeTint(tintColor),
             blurRadius = blurRadius,
-            noiseFactor = 0.08f
+            noiseFactor = 0.05f
         )
     }
     val base = this
         .shadow(
-            elevation = if (isDark) shadowElevation else (shadowElevation * 0.7f),
+            elevation = if (isDark) shadowElevation else (shadowElevation * 0.65f),
             shape = shape,
-            ambientColor = Color.Black.copy(alpha = if (isDark) 0.40f else 0.10f),
-            spotColor = Color.Black.copy(alpha = if (isDark) 0.40f else 0.10f)
+            ambientColor = Color.Black.copy(alpha = if (isDark) 0.42f else 0.09f),
+            spotColor = Color.Black.copy(alpha = if (isDark) 0.42f else 0.08f)
         )
         .clip(shape)
     val frosted = if (hazeState != null) {
         base.hazeEffect(state = hazeState, style = hazeStyle)
     } else {
-        base.background(navFill)
+        base.background(tintColor)
     }
-    return frosted.border(1.dp, borderBrush, shape)
+    return frosted
+        .drawBehind {
+            // Subtle inner top specular gleam along the glass rim
+            drawRect(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = if (isDark) 0.14f else 0.50f),
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = 18.dp.toPx()
+                )
+            )
+        }
+        .border(1.dp, borderBrush, shape)
 }
 
-/** Smooth spring-animated sliding pill segmented bar with optional frosted Haze blur behind it. */
+/** Floating frosted glass top header matching the Liquid Glass dock aesthetic. */
+@Composable
+fun LiquidGlassTopHeader(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = LocalHazeState.current,
+    trailing: @Composable (() -> Unit)? = null
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .liquidGlassChrome(
+                shape = RoundedCornerShape(24.dp),
+                hazeState = hazeState,
+                blurRadius = 24.dp,
+                shadowElevation = 10.dp
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = Glass.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Glass.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (trailing != null) {
+            Spacer(Modifier.width(10.dp))
+            trailing()
+        }
+    }
+}
+
+/** Spring-animated sliding liquid pill segmented bar with real frosted Haze blur. */
 @Composable
 fun <T> GlassSegmentedBar(
     items: List<T>,
@@ -177,33 +325,41 @@ fun <T> GlassSegmentedBar(
     icon: (T) -> ImageVector,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: HazeState? = null
+    hazeState: HazeState? = LocalHazeState.current
 ) {
-    val shape = RoundedCornerShape(22.dp)
-    val pillShape = RoundedCornerShape(17.dp)
+    val shape = RoundedCornerShape(26.dp)
+    val pillShape = RoundedCornerShape(22.dp)
     val isDark = Glass.IsDark
     val selectedIndex = items.indexOf(selected).coerceAtLeast(0)
 
-    val pillFill = Glass.Cyan.copy(alpha = if (isDark) 0.18f else 0.14f)
-    val pillBorder = remember(isDark) {
-        Brush.verticalGradient(
-            listOf(
-                Color.White.copy(alpha = if (isDark) 0.28f else 0.75f),
-                Color.White.copy(alpha = 0.06f)
+    val pillFill = remember(isDark) {
+        if (isDark) {
+            Brush.horizontalGradient(
+                listOf(Color.White.copy(alpha = 0.22f), Color(0xFF93C5FD).copy(alpha = 0.22f))
             )
-        )
+        } else {
+            Brush.horizontalGradient(
+                listOf(Color.White.copy(alpha = 0.92f), Color.White.copy(alpha = 0.80f))
+            )
+        }
     }
+    val pillBorder = diagonalGlassBorder(isDark = isDark, strong = true)
 
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
-            .liquidGlassChrome(shape = shape, hazeState = hazeState, blurRadius = 18.dp, shadowElevation = 8.dp)
+            .liquidGlassChrome(
+                shape = shape,
+                hazeState = hazeState,
+                blurRadius = 22.dp,
+                shadowElevation = 8.dp
+            )
             .padding(4.dp)
     ) {
         val tabWidth = maxWidth / items.size
         val indicatorOffset by animateDpAsState(
             targetValue = tabWidth * selectedIndex,
-            animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f),
+            animationSpec = spring(dampingRatio = 0.8f, stiffness = 360f),
             label = "segmentSlide"
         )
 
@@ -213,6 +369,10 @@ fun <T> GlassSegmentedBar(
                     .offset(x = indicatorOffset)
                     .width(tabWidth)
                     .fillMaxHeight()
+                    .then(
+                        if (!isDark) Modifier.shadow(4.dp, pillShape, ambientColor = Color.Black.copy(alpha = 0.08f))
+                        else Modifier
+                    )
                     .clip(pillShape)
                     .background(pillFill)
                     .border(1.dp, pillBorder, pillShape)
@@ -235,7 +395,7 @@ fun <T> GlassSegmentedBar(
                         Icon(
                             icon(item),
                             null,
-                            tint = if (isSelected) Glass.Cyan else Glass.TextSecondary,
+                            tint = if (isSelected) (if (isDark) Glass.TextPrimary else Glass.Cyan) else Glass.TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(Modifier.width(5.dp))
@@ -253,17 +413,17 @@ fun <T> GlassSegmentedBar(
     }
 }
 
-// ------------------------------------------------------------------ Frosted Glass Cards & Controls
+// ------------------------------------------------------------------ Layered Frosted Glass Cards & Pills
 
 @Composable
-fun GlassCard(
+fun LiquidGlassCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     accent: Color? = null,
-    contentPadding: PaddingValues = PaddingValues(16.dp),
+    contentPadding: PaddingValues = PaddingValues(18.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(24.dp)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -272,33 +432,164 @@ fun GlassCard(
         label = "press"
     )
     val cardFill = Glass.CardFill
-    val stroke = Glass.Stroke
+    val fallbackBg = Glass.Surface
     val isDark = Glass.IsDark
+    val borderBrush = diagonalGlassBorder(isDark = isDark)
+    val backdropHaze = LocalBackdropHazeState.current
+    val hazeStyle = remember(fallbackBg, cardFill) {
+        HazeStyle(
+            backgroundColor = fallbackBg,
+            tint = HazeTint(cardFill),
+            blurRadius = 24.dp,
+            noiseFactor = 0.04f
+        )
+    }
 
     var m = modifier
         .graphicsLayer { scaleX = scale; scaleY = scale }
-        .then(
-            if (!isDark) Modifier.shadow(
-                elevation = 4.dp,
-                shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.06f),
-                spotColor = Color.Black.copy(alpha = 0.05f)
-            ) else Modifier
+        .shadow(
+            elevation = if (isDark) 8.dp else 6.dp,
+            shape = shape,
+            ambientColor = Color.Black.copy(alpha = if (isDark) 0.28f else 0.06f),
+            spotColor = Color.Black.copy(alpha = if (isDark) 0.25f else 0.05f)
         )
         .clip(shape)
-        .background(cardFill)
-        .border(1.dp, stroke, shape)
 
-    if (accent != null) {
-        val wash = accent.copy(alpha = if (isDark) 0.06f else 0.05f)
-        m = m.drawBehind {
-            drawRect(Brush.verticalGradient(listOf(wash, Color.Transparent)))
-        }
+    m = if (backdropHaze != null) {
+        m.hazeEffect(state = backdropHaze, style = hazeStyle)
+    } else {
+        m.background(cardFill)
     }
+
+    m = m.drawBehind {
+        // Top inner specular light gleam
+        drawRect(
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = if (isDark) 0.11f else 0.45f),
+                    Color.Transparent
+                ),
+                startY = 0f,
+                endY = 20.dp.toPx()
+            )
+        )
+        if (accent != null) {
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(accent.copy(alpha = if (isDark) 0.14f else 0.10f), Color.Transparent),
+                    center = Offset(size.width * 0.5f, 0f),
+                    radius = size.width * 0.85f
+                )
+            )
+        }
+    }.border(1.dp, borderBrush, shape)
+
     if (onClick != null) {
         m = m.clickable(interactionSource = interaction, indication = null, onClick = onClick)
     }
     Column(m.padding(contentPadding), content = content)
+}
+
+@Composable
+fun GlassCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    accent: Color? = null,
+    contentPadding: PaddingValues = PaddingValues(18.dp),
+    content: @Composable ColumnScope.() -> Unit
+) = LiquidGlassCard(
+    modifier = modifier,
+    onClick = onClick,
+    accent = accent,
+    contentPadding = contentPadding,
+    content = content
+)
+
+@Composable
+fun LiquidGlassPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    primary: Boolean = true,
+    enabled: Boolean = true,
+    compact: Boolean = false,
+    trailing: @Composable (() -> Unit)? = null
+) {
+    val shape = RoundedCornerShape(50)
+    val isDark = Glass.IsDark
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (pressed && enabled) 0.974f else 1f,
+        spring(stiffness = Spring.StiffnessMedium),
+        label = "pillBtn"
+    )
+
+    val borderBrush = diagonalGlassBorder(isDark = isDark, strong = primary)
+    val primaryBrush = remember(isDark) {
+        if (isDark) {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF38BDF8).copy(alpha = 0.34f),
+                    Color(0xFF6366F1).copy(alpha = 0.30f),
+                    Color(0xFF10B981).copy(alpha = 0.32f)
+                )
+            )
+        } else {
+            Brush.horizontalGradient(
+                listOf(Color(0xFF0284C7), Color(0xFF059669))
+            )
+        }
+    }
+    val contentColor = when {
+        primary -> Color.White
+        else -> Glass.TextPrimary
+    }
+
+    Row(
+        modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale; alpha = if (enabled) 1f else 0.44f }
+            .height(if (compact) 40.dp else 52.dp)
+            .shadow(
+                elevation = if (primary) (if (isDark) 10.dp else 6.dp) else 0.dp,
+                shape = shape,
+                ambientColor = if (primary) Glass.Cyan.copy(alpha = 0.35f) else Color.Transparent,
+                spotColor = if (primary) Glass.Cyan.copy(alpha = 0.35f) else Color.Transparent
+            )
+            .clip(shape)
+            .then(
+                if (primary) {
+                    Modifier
+                        .background(primaryBrush)
+                        .border(1.dp, borderBrush, shape)
+                } else {
+                    Modifier
+                        .background(Glass.CardFill)
+                        .border(1.dp, borderBrush, shape)
+                }
+            )
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
+            .padding(horizontal = if (compact) 15.dp else 20.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(icon, null, tint = contentColor, modifier = Modifier.size(if (compact) 17.dp else 19.dp))
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(
+            text = text,
+            color = contentColor,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (trailing != null) {
+            Spacer(Modifier.width(8.dp))
+            trailing()
+        }
+    }
 }
 
 @Composable
@@ -309,43 +600,18 @@ fun GlassButton(
     icon: ImageVector? = null,
     primary: Boolean = true,
     enabled: Boolean = true,
-    compact: Boolean = false
-) {
-    val shape = RoundedCornerShape(if (compact) 13.dp else 16.dp)
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (pressed && enabled) 0.975f else 1f,
-        spring(stiffness = Spring.StiffnessMedium),
-        label = "btn"
-    )
-    val contentColor = if (primary) Glass.OnAccent else Glass.TextPrimary
-    Row(
-        modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale; alpha = if (enabled) 1f else 0.42f }
-            .height(if (compact) 38.dp else 50.dp)
-            .clip(shape)
-            .then(
-                if (primary) {
-                    Modifier.background(Glass.Cyan)
-                } else {
-                    Modifier
-                        .background(Glass.CardFill)
-                        .border(1.dp, Glass.Stroke, shape)
-                }
-            )
-            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
-            .padding(horizontal = if (compact) 13.dp else 18.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            Icon(icon, null, tint = contentColor, modifier = Modifier.size(if (compact) 17.dp else 19.dp))
-            Spacer(Modifier.width(7.dp))
-        }
-        Text(text, color = contentColor, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-    }
-}
+    compact: Boolean = false,
+    trailing: @Composable (() -> Unit)? = null
+) = LiquidGlassPill(
+    text = text,
+    onClick = onClick,
+    modifier = modifier,
+    icon = icon,
+    primary = primary,
+    enabled = enabled,
+    compact = compact,
+    trailing = trailing
+)
 
 @Composable
 fun GlassIconButton(
@@ -368,20 +634,27 @@ fun GlassChip(
     modifier: Modifier = Modifier,
     color: Color = Glass.Cyan
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(50)
+    val isDark = Glass.IsDark
     Box(
         modifier
             .clip(shape)
-            .background(if (selected) color.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f) else Glass.CardFillSubtle)
-            .border(1.dp, if (selected) color.copy(alpha = 0.55f) else Glass.Stroke, shape)
+            .background(
+                if (selected) color.copy(alpha = if (isDark) 0.22f else 0.15f)
+                else Glass.CardFillSubtle
+            )
+            .then(
+                if (selected) Modifier.border(1.dp, color.copy(alpha = 0.55f), shape)
+                else Modifier
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text,
             maxLines = 1,
-            color = if (selected) color else Glass.TextSecondary,
+            color = if (selected) (if (isDark) Color.White else color) else Glass.TextSecondary,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
         )
@@ -461,11 +734,11 @@ fun GlassTextField(
         keyboardOptions = keyboardOptions,
         visualTransformation = visualTransformation,
         trailingIcon = trailing,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = Glass.CardFill,
             unfocusedContainerColor = Glass.CardFillSubtle,
-            focusedBorderColor = Glass.Cyan,
+            focusedBorderColor = Glass.Cyan.copy(alpha = 0.7f),
             unfocusedBorderColor = Glass.Stroke,
             focusedLabelColor = Glass.Cyan,
             unfocusedLabelColor = Glass.TextSecondary,
@@ -486,7 +759,7 @@ fun GlassSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
             checkedTrackColor = Glass.Cyan,
             uncheckedThumbColor = Glass.TextSecondary,
             uncheckedTrackColor = Glass.CardFillSubtle,
-            uncheckedBorderColor = Glass.Stroke
+            uncheckedBorderColor = Color.Transparent
         )
     )
 }
@@ -515,15 +788,15 @@ fun OfflineBadge(modifier: Modifier = Modifier, compact: Boolean = false) {
     Row(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(Glass.Amber.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-            .border(1.dp, Glass.Amber.copy(alpha = 0.45f), RoundedCornerShape(50))
+            .background(Glass.CardFillSubtle)
+            .border(1.dp, Glass.Amber.copy(alpha = 0.40f), RoundedCornerShape(50))
             .padding(horizontal = 11.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(Icons.Rounded.WifiOff, null, tint = Glass.Amber, modifier = Modifier.size(13.dp))
         Spacer(Modifier.width(6.dp))
         Text(
-            if (compact) "Offline Mode" else "Offline Mode — All Media & PDF Tools Ready",
+            if (compact) "Offline Mode" else "Offline Mode — Media & PDF Tools Ready",
             color = Glass.Amber,
             style = MaterialTheme.typography.labelSmall
         )
@@ -535,7 +808,7 @@ fun OnlineBadge(modifier: Modifier = Modifier) {
     Row(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
+            .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f))
             .border(1.dp, Glass.Emerald.copy(alpha = 0.42f), RoundedCornerShape(50))
             .padding(horizontal = 11.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -550,13 +823,13 @@ fun OnlineBadge(modifier: Modifier = Modifier) {
 fun StatusBanner(message: UiMessage?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     if (message == null) return
     val tint = if (message.isError) Glass.Danger else Glass.Emerald
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(18.dp)
     Row(
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(tint.copy(alpha = if (Glass.IsDark) 0.12f else 0.08f))
-            .border(1.dp, tint.copy(alpha = 0.42f), shape)
+            .background(tint.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
+            .border(1.dp, tint.copy(alpha = 0.38f), shape)
             .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -586,7 +859,7 @@ fun ProgressOverlay(progress: Progress?) {
             },
         contentAlignment = Alignment.Center
     ) {
-        GlassCard(Modifier.padding(32.dp).fillMaxWidth(0.82f)) {
+        LiquidGlassCard(Modifier.padding(32.dp).fillMaxWidth(0.82f)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (progress.fraction == null) {
                     CircularProgressIndicator(color = Glass.Cyan, trackColor = Glass.Stroke)
@@ -616,8 +889,8 @@ fun ToolPage(
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
     topPadding: Dp = 0.dp,
-    bottomPadding: Dp = 114.dp,
-    hazeState: HazeState? = null,
+    bottomPadding: Dp = 118.dp,
+    hazeState: HazeState? = LocalHazeState.current,
     onBack: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
@@ -625,14 +898,19 @@ fun ToolPage(
     Box(modifier.fillMaxSize()) {
         val baseScroll = Modifier
             .fillMaxSize()
-            .let { if (hazeState != null) it.hazeSource(hazeState) else it }
+            .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(top = topPadding, bottom = bottomPadding)
 
-        Column(baseScroll, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(baseScroll, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (title != null) {
-                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Glass.TextPrimary)
@@ -693,20 +971,24 @@ fun BitmapImage(bitmap: Bitmap?, modifier: Modifier = Modifier, contentScale: Co
 
 @Composable
 fun EmptyPicker(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
-    GlassCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(26.dp)) {
+    LiquidGlassCard(
+        Modifier.fillMaxWidth(),
+        onClick = onClick,
+        accent = Glass.Cyan,
+        contentPadding = PaddingValues(28.dp)
+    ) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 Modifier
-                    .size(56.dp)
+                    .size(58.dp)
                     .clip(CircleShape)
-                    .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-                    .border(1.dp, Glass.Cyan.copy(alpha = 0.35f), CircleShape),
+                    .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f)),
                 contentAlignment = Alignment.Center
-            ) { Icon(icon, null, tint = Glass.Cyan, modifier = Modifier.size(26.dp)) }
-            Spacer(Modifier.height(12.dp))
+            ) { Icon(icon, null, tint = Glass.Cyan, modifier = Modifier.size(28.dp)) }
+            Spacer(Modifier.height(14.dp))
             Text(title, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
+            Spacer(Modifier.height(4.dp))
+            Hint(subtitle)
         }
     }
 }

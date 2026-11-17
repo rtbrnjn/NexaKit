@@ -10,7 +10,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -91,6 +91,8 @@ import com.mediaforge.studio.ui.components.GlassSegmentedBar
 import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
+import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
+import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.components.OfflineBadge
 import com.mediaforge.studio.ui.components.OnlineBadge
 import com.mediaforge.studio.ui.components.ProgressOverlay
@@ -105,7 +107,6 @@ import com.mediaforge.studio.vm.PdfAiViewModel
 import com.mediaforge.studio.vm.SettingsViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 
 enum class AiTool(val label: String, val icon: ImageVector) {
     PDF_CHAT("PDF AI", Icons.Rounded.Description),
@@ -140,9 +141,9 @@ fun GeminiAiScreen(
     val model by settingsVm.model.collectAsState()
     var active by rememberSaveable { mutableStateOf(AiTool.PDF_CHAT) }
 
-    val headerHaze = rememberHazeState()
+    val chromeHaze = LocalHazeState.current
     var headerHeightPx by remember { mutableIntStateOf(0) }
-    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 8.dp
+    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 10.dp
 
     LaunchedEffect(requestedTool) {
         if (requestedTool != null) {
@@ -157,17 +158,16 @@ fun GeminiAiScreen(
         AnimatedContent(
             targetState = active,
             transitionSpec = {
-                val forward = targetState.ordinal >= initialState.ordinal
-                (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { if (forward) it / 16 else -it / 16 })
+                (fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
                     .togetherWith(fadeOut(tween(180)))
             },
             label = "aiSubTab",
             modifier = Modifier.fillMaxSize()
         ) { tool ->
             when (tool) {
-                AiTool.PDF_CHAT -> PdfAssistantTab(pdfAiVm, aiReady, topPadding, headerHaze)
-                AiTool.COPYWRITER -> CopywriterTab(copyVm, aiReady, topPadding, headerHaze)
-                AiTool.VAULT -> AiVaultTab(vaultVm, topPadding, headerHaze)
+                AiTool.PDF_CHAT -> PdfAssistantTab(pdfAiVm, aiReady, topPadding, chromeHaze)
+                AiTool.COPYWRITER -> CopywriterTab(copyVm, aiReady, topPadding, chromeHaze)
+                AiTool.VAULT -> AiVaultTab(vaultVm, topPadding, chromeHaze)
             }
         }
 
@@ -180,16 +180,17 @@ fun GeminiAiScreen(
                 .padding(top = 12.dp, bottom = 4.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("NexaKit · Gemini AI", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
-                    Text("Turbo SSE Streaming • $model", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            LiquidGlassTopHeader(
+                title = "NexaKit · Gemini AI",
+                subtitle = "SSE Streaming • $model",
+                hazeState = chromeHaze,
+                trailing = {
+                    if (online && apiKey.isNotBlank()) OnlineBadge() else OfflineBadge(compact = true)
                 }
-                if (online && apiKey.isNotBlank()) OnlineBadge() else OfflineBadge(compact = true)
-            }
+            )
 
             if (!online) {
-                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(11.dp)) {
+                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
                     Text(
                         "Offline Mode — All Media & PDF Tools Ready. Connect to the internet for live Gemini AI streaming.",
                         style = MaterialTheme.typography.bodySmall,
@@ -197,12 +198,12 @@ fun GeminiAiScreen(
                     )
                 }
             } else if (apiKey.isBlank()) {
-                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(11.dp)) {
+                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Key, null, tint = Glass.Amber, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Offline Mode — Add your Gemini API key in Settings to enable AI.",
+                            "Add your Gemini API key in Settings to enable Gemini $model.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Glass.TextPrimary,
                             modifier = Modifier.weight(1f)
@@ -219,7 +220,7 @@ fun GeminiAiScreen(
                 label = { it.label },
                 icon = { it.icon },
                 onSelect = { active = it },
-                hazeState = headerHaze
+                hazeState = chromeHaze
             )
         }
     }
@@ -233,7 +234,7 @@ private fun PdfAssistantTab(
     vm: PdfAiViewModel,
     aiReady: Boolean,
     topPadding: Dp,
-    hazeState: HazeState
+    hazeState: HazeState?
 ) {
     val ctx = LocalContext.current
     val source by vm.source.collectAsState()
@@ -263,10 +264,10 @@ private fun PdfAssistantTab(
         Column(
             Modifier
                 .fillMaxSize()
-                .hazeSource(hazeState)
+                .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = 112.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(top = topPadding, bottom = 118.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StatusBanner(message, vm::dismissMessage)
 
@@ -474,7 +475,7 @@ private fun CopywriterTab(
     vm: CopywriterViewModel,
     aiReady: Boolean,
     topPadding: Dp,
-    hazeState: HazeState
+    hazeState: HazeState?
 ) {
     val ctx = LocalContext.current
     val uri by vm.uri.collectAsState()
@@ -609,10 +610,9 @@ private fun CopywriterTab(
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(14.dp))
                                         .background(Glass.CardFillSubtle)
-                                        .border(1.dp, Glass.Stroke, RoundedCornerShape(12.dp))
-                                        .padding(10.dp),
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.Top
                                 ) {
                                     Text("${idx + 1}.", style = MaterialTheme.typography.labelLarge, color = Glass.Emerald, modifier = Modifier.width(22.dp))
@@ -663,7 +663,7 @@ private fun CopywriterTab(
 private fun AiVaultTab(
     vm: AiVaultViewModel,
     topPadding: Dp,
-    hazeState: HazeState
+    hazeState: HazeState?
 ) {
     val ctx = LocalContext.current
     val entries by vm.entries.collectAsState()
@@ -681,10 +681,10 @@ private fun AiVaultTab(
     LazyColumn(
         Modifier
             .fillMaxSize()
-            .hazeSource(hazeState)
+            .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(top = topPadding, bottom = 114.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(top = topPadding, bottom = 118.dp)
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

@@ -8,7 +8,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -82,6 +82,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -102,10 +104,13 @@ import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.LabeledSlider
+import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
+import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.ToolPage
 import com.mediaforge.studio.ui.components.UriImage
 import com.mediaforge.studio.ui.theme.Glass
+import dev.chrisbanes.haze.hazeSource
 import com.mediaforge.studio.vm.CompressPdfViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
@@ -185,8 +190,7 @@ fun PdfSuiteScreen(
     AnimatedContent(
         targetState = activeTool,
         transitionSpec = {
-            val enteringTool = targetState != null
-            (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { if (enteringTool) it / 14 else -it / 14 })
+            (fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
                 .togetherWith(fadeOut(tween(180)))
         },
         label = "pdfToolTransition"
@@ -211,61 +215,73 @@ fun PdfSuiteScreen(
 
 @Composable
 private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 12.dp, bottom = 112.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("NexaKit · PDF Suite", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
-                Text("12 Offline PDF Tools • On-Device Only", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
-            }
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-                    .border(1.dp, Glass.Cyan.copy(alpha = 0.4f), RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Rounded.Shield, null, tint = Glass.Cyan, modifier = Modifier.size(13.dp))
-                Spacer(Modifier.width(5.dp))
-                Text("Offline", color = Glass.Cyan, style = MaterialTheme.typography.labelSmall)
+    val chromeHaze = LocalHazeState.current
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 10.dp
+
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .let { if (chromeHaze != null) it.hazeSource(chromeHaze, zIndex = 1f) else it }
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = topPadding, bottom = 118.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            PdfTool.entries.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    pair.forEach { tool ->
+                        val accent = tool.accentColor()
+                        GlassCard(
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSelect(tool) },
+                            contentPadding = PaddingValues(16.dp)
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(accent.copy(alpha = if (Glass.IsDark) 0.16f else 0.11f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(tool.icon, null, tint = accent, modifier = Modifier.size(21.dp))
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            Text(tool.title, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            Text(tool.subtitle, style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 2, minLines = 2)
+                        }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
             }
         }
 
-        PdfTool.entries.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                pair.forEach { tool ->
-                    val accent = tool.accentColor()
-                    GlassCard(
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelect(tool) },
-                        contentPadding = PaddingValues(15.dp)
-                    ) {
-                        Box(
-                            Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(13.dp))
-                                .background(accent.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-                                .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(13.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(tool.icon, null, tint = accent, modifier = Modifier.size(21.dp))
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(tool.title, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(3.dp))
-                        Text(tool.subtitle, style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 2, minLines = 2)
-                    }
+        LiquidGlassTopHeader(
+            title = "NexaKit · PDF Suite",
+            subtitle = "12 Offline Tools • On-Device Only",
+            hazeState = chromeHaze,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .onSizeChanged { headerHeightPx = it.height }
+                .padding(horizontal = 16.dp)
+                .padding(top = 12.dp, bottom = 4.dp),
+            trailing = {
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Glass.CardFillSubtle)
+                        .border(1.dp, Glass.Cyan.copy(alpha = 0.35f), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(Glass.Cyan))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Offline", color = Glass.TextPrimary, style = MaterialTheme.typography.labelSmall)
                 }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
-        }
+        )
     }
 }
 

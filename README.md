@@ -6,23 +6,24 @@ Designed around an Apple-inspired **True Liquid Glass** aesthetic with real-time
 
 ---
 
-## Download & Install APK (`v1.2.0`)
+## Download & Install APK (`v1.3.0`)
 
-- **Direct Download (`v1.2.0`):** [app-release.apk](https://github.com/rtbrnjn/MediaForge-Studio/releases/download/v1.2.0/app-release.apk)
-- **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/MediaForge-Studio/releases)
+- **Direct Download (`v1.3.0`):** [app-release.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.3.0/app-release.apk)
+- **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `app-release.apk` dari halaman Releases di atas.
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **v1.0.0 / v1.1.0** yang memakai rilis signed dari GitHub dapat langsung memperbarui tanpa uninstall (`applicationId` dan keystore sama).
+3. Pengguna **v1.2.0+** yang memakai rilis signed dari GitHub dapat langsung memperbarui tanpa uninstall (`applicationId` dan keystore sama).
 
 ---
 
-## What's New in v1.2.0
-- **True Liquid Glass Frosted UI** — Menggunakan `dev.chrisbanes.haze` (`haze` + `haze-blur`) pada Bottom Navigation Bar & Top Segmented Tabs untuk blur konten secara real-time (Android 12+), bingkai kaca `28.dp` dengan refleksi gradasi tipis, dan bayangan lembut.
-- **Animated Sliding Liquid Pill & Smooth Transitions** — Indikator tab meluncur mulus dengan spring physics (`dampingRatio = 0.78f`, `stiffness = 380f`), transisi halus `AnimatedContent` & `NavHost`, serta padding bawah aman (`112–114.dp`) di semua halaman gulir.
-- **Turbo Gemini AI & Local ML Kit OCR** — Scanned PDF otomatis diproses secara lokal menggunakan **ML Kit Text Recognition** (0 gambar diunggah kecuali **Vision Mode** diaktifkan), disertai `:streamGenerateContent?alt=sse`, `thinkingBudget: 0`, `maxOutputTokens: 1024`, dan status real-time.
-- **Compact Settings Model Dropdown** — Daftar chip model yang panjang kini diringkas menjadi **Liquid Glass Dropdown Selector** berisi model rekomendasi (`gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro`) serta opsi input custom model.
+## What's New in v1.3.0 ("True Liquid Glass Edition")
+- **Animated Ambient Mesh Backdrop (`LiquidGlassBackdrop`)** — Pendaran cahaya radial lembut (biru safir, teal zamrud, dan indigo di Dark Mode; biru langit & mint lembut di Light Mode) bergerak perlahan di balik seluruh layar dan membias melalui kartu kaca di atasnya.
+- **Layered Translucent Glass Material (`LiquidGlassCard` & `LiquidGlassPill`)** — Kartu kaca berlapis dengan opasitas adaptif (`0.08f` Dark / `0.65f` Light), frosted blur nyata via `Haze`, garis tepi pantulan cahaya gradasi diagonal (`35%` -> `6%`), kilau atas tipis, tata letak lega, serta tombol aksi kapsul kaca.
+- **Floating Frosted Top Header, Navbar & Smooth Transitions** — Dock navigasi atas & bawah mengambang dengan efek blur latar nyata, spring sliding pill (`dampingRatio = 0.8f`, `stiffness = 360f`), animasi transisi `fadeIn + scaleIn(0.98f)`, serta padding aman bawah (`118.dp`).
+- **Gemini 3.8 Default & Auto-Migration** — Model bawaan diperbarui ke `gemini-3.8-flash` (ditambah `gemini-3.8-flash-lite` dan `gemini-4-hydrogen` + opsi custom model di **Dropdown Selector** Settings), migrasi otomatis dari `gemini-2.5-flash` di DataStore, kompresi foto otomatis (`768px`, `75%` JPEG), dan streaming SSE real-time.
+- **Updated Liquid Glass App Icon** — Ikon aplikasi baru beresolusi tinggi dengan prism kaca tembus pandang dan ikon dokumen/media untuk semua densitas launcher Android.
 
 ---
 

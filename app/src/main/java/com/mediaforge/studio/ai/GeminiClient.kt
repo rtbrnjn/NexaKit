@@ -139,7 +139,7 @@ enum class DocTask(val label: String, val prompt: String) {
 
 /**
  * Lightweight Gemini REST client using `HttpURLConnection` + `org.json` + SSE Kotlin `Flow`.
- * Defaults to zero thinking budget on 2.5 Flash for low-latency real-time streaming.
+ * Configured for Gemini 3.8 / Gemini 4 low-latency SSE streaming (`thinkingLevel: LOW`) and legacy 2.5 Flash compatibility.
  */
 class GeminiClient {
 
@@ -316,12 +316,21 @@ class GeminiClient {
                 JSONObject().put("parts", JSONArray().put(JSONObject().put("text", systemInstruction)))
             )
         }
+        val lower = model.lowercase()
+        val isDeepModel = lower.contains("hydrogen") || lower.contains("pro")
         val gen = JSONObject()
             .put("temperature", temperature)
-            .put("maxOutputTokens", 1024)
-        if (model.contains("2.5")) {
-            val budget = if (model.contains("pro")) 128 else 0
-            gen.put("thinkingConfig", JSONObject().put("thinkingBudget", budget))
+            .put("maxOutputTokens", if (isDeepModel) 4096 else 2048)
+        when {
+            lower.contains("2.5") -> {
+                val budget = if (lower.contains("pro")) 128 else 0
+                gen.put("thinkingConfig", JSONObject().put("thinkingBudget", budget))
+            }
+            lower.startsWith("gemini-3") || lower.startsWith("gemini-4") -> {
+                // Gemini 3.8 Flash rejects `MINIMAL`; `LOW` provides minimum reasoning latency without 400 errors.
+                val level = if (isDeepModel) "MEDIUM" else "LOW"
+                gen.put("thinkingConfig", JSONObject().put("thinkingLevel", level))
+            }
         }
         body.put("generationConfig", gen)
         return body

@@ -15,7 +15,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -72,8 +72,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mediaforge.studio.core.Permissions
 import com.mediaforge.studio.data.ThemeMode
-import com.mediaforge.studio.ui.components.LiquidBackground
+import com.mediaforge.studio.ui.components.LiquidGlassBackdrop
+import com.mediaforge.studio.ui.components.LocalBackdropHazeState
 import com.mediaforge.studio.ui.components.LocalHazeState
+import com.mediaforge.studio.ui.components.diagonalGlassBorder
 import com.mediaforge.studio.ui.components.liquidGlassChrome
 import com.mediaforge.studio.ui.screens.AiTool
 import com.mediaforge.studio.ui.screens.GeminiAiScreen
@@ -106,7 +108,6 @@ import com.mediaforge.studio.vm.SplitPdfViewModel
 import com.mediaforge.studio.vm.TextToPdfViewModel
 import com.mediaforge.studio.vm.UnlockPdfViewModel
 import com.mediaforge.studio.vm.WatermarkPdfViewModel
-import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -177,7 +178,8 @@ private fun MediaForgeRoot() {
     val container = app.container
     val scope = rememberCoroutineScope()
 
-    val rootHazeState = rememberHazeState()
+    val backdropHazeState = rememberHazeState()
+    val chromeHazeState = rememberHazeState()
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: TopTab.MEDIA_LAB.route
@@ -292,76 +294,75 @@ private fun MediaForgeRoot() {
         container.consumeShareDispatch()
     }
 
-    CompositionLocalProvider(LocalHazeState provides rootHazeState) {
-        LiquidBackground {
+    CompositionLocalProvider(
+        LocalBackdropHazeState provides backdropHazeState,
+        LocalHazeState provides chromeHazeState
+    ) {
+        LiquidGlassBackdrop(
+            backdropHaze = backdropHazeState,
+            chromeHaze = chromeHazeState
+        ) {
             Box(
                 Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
             ) {
-                // Content captured by Haze so floating navbar blurs scrolling content smoothly underneath.
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .hazeSource(rootHazeState)
+                NavHost(
+                    navController = navController,
+                    startDestination = TopTab.MEDIA_LAB.route,
+                    enterTransition = {
+                        fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220))
+                    },
+                    exitTransition = {
+                        fadeOut(tween(180))
+                    },
+                    popEnterTransition = {
+                        fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220))
+                    },
+                    popExitTransition = {
+                        fadeOut(tween(180))
+                    },
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    NavHost(
-                        navController = navController,
-                        startDestination = TopTab.MEDIA_LAB.route,
-                        enterTransition = {
-                            fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 18 }
-                        },
-                        exitTransition = {
-                            fadeOut(tween(180))
-                        },
-                        popEnterTransition = {
-                            fadeIn(tween(220)) + slideInHorizontally(tween(220)) { -it / 18 }
-                        },
-                        popExitTransition = {
-                            fadeOut(tween(180))
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        composable(TopTab.MEDIA_LAB.route) {
-                            MediaLabScreen(
-                                compressorVm = compressorVm,
-                                mockupVm = mockupVm,
-                                collageVm = collageVm,
-                                requestedTool = requestedMediaTool,
-                                onToolHandled = { requestedMediaTool = null }
-                            )
-                        }
-                        composable(TopTab.PDF_SUITE.route) {
-                            PdfSuiteScreen(
-                                pdfToDocxVm = pdfToDocxVm,
-                                textToPdfVm = textToPdfVm,
-                                imagesToPdfVm = imagesToPdfVm,
-                                pdfToImagesVm = pdfToImagesVm,
-                                mergeVm = mergeVm,
-                                splitVm = splitVm,
-                                compressVm = compressPdfVm,
-                                editVm = editPdfVm,
-                                pageNumbersVm = pageNumbersVm,
-                                watermarkVm = watermarkVm,
-                                protectVm = protectVm,
-                                unlockVm = unlockVm,
-                                requestedTool = requestedPdfTool,
-                                onToolHandled = { requestedPdfTool = null }
-                            )
-                        }
-                        composable(TopTab.GEMINI_AI.route) {
-                            GeminiAiScreen(
-                                settingsVm = settingsVm,
-                                onOpenVault = { navigateTo(TopTab.SETTINGS) },
-                                copyVm = copyVm,
-                                pdfAiVm = pdfAiVm,
-                                vaultVm = aiVaultVm,
-                                requestedTool = requestedAiTool,
-                                onToolHandled = { requestedAiTool = null }
-                            )
-                        }
-                        composable(TopTab.SETTINGS.route) { SettingsScreen(settingsVm) }
+                    composable(TopTab.MEDIA_LAB.route) {
+                        MediaLabScreen(
+                            compressorVm = compressorVm,
+                            mockupVm = mockupVm,
+                            collageVm = collageVm,
+                            requestedTool = requestedMediaTool,
+                            onToolHandled = { requestedMediaTool = null }
+                        )
                     }
+                    composable(TopTab.PDF_SUITE.route) {
+                        PdfSuiteScreen(
+                            pdfToDocxVm = pdfToDocxVm,
+                            textToPdfVm = textToPdfVm,
+                            imagesToPdfVm = imagesToPdfVm,
+                            pdfToImagesVm = pdfToImagesVm,
+                            mergeVm = mergeVm,
+                            splitVm = splitVm,
+                            compressVm = compressPdfVm,
+                            editVm = editPdfVm,
+                            pageNumbersVm = pageNumbersVm,
+                            watermarkVm = watermarkVm,
+                            protectVm = protectVm,
+                            unlockVm = unlockVm,
+                            requestedTool = requestedPdfTool,
+                            onToolHandled = { requestedPdfTool = null }
+                        )
+                    }
+                    composable(TopTab.GEMINI_AI.route) {
+                        GeminiAiScreen(
+                            settingsVm = settingsVm,
+                            onOpenVault = { navigateTo(TopTab.SETTINGS) },
+                            copyVm = copyVm,
+                            pdfAiVm = pdfAiVm,
+                            vaultVm = aiVaultVm,
+                            requestedTool = requestedAiTool,
+                            onToolHandled = { requestedAiTool = null }
+                        )
+                    }
+                    composable(TopTab.SETTINGS.route) { SettingsScreen(settingsVm) }
                 }
 
                 LiquidGlassBottomBar(
@@ -399,15 +400,18 @@ private fun LiquidGlassBottomBar(
     val isDark = Glass.IsDark
     val pillShape = RoundedCornerShape(22.dp)
 
-    val pillFill = Glass.Cyan.copy(alpha = if (isDark) 0.18f else 0.14f)
-    val pillBorder = remember(isDark) {
-        Brush.verticalGradient(
-            listOf(
-                Color.White.copy(alpha = if (isDark) 0.28f else 0.80f),
-                Color.White.copy(alpha = 0.06f)
+    val pillFill = remember(isDark) {
+        if (isDark) {
+            Brush.horizontalGradient(
+                listOf(Color.White.copy(alpha = 0.19f), Color(0xFF93C5FD).copy(alpha = 0.16f))
             )
-        )
+        } else {
+            Brush.horizontalGradient(
+                listOf(Color.White.copy(alpha = 0.90f), Color(0xFFE0F2FE).copy(alpha = 0.72f))
+            )
+        }
     }
+    val pillBorder = diagonalGlassBorder(isDark = isDark, strong = true)
 
     BoxWithConstraints(
         modifier
@@ -415,20 +419,21 @@ private fun LiquidGlassBottomBar(
             .liquidGlassChrome(
                 shape = RoundedCornerShape(28.dp),
                 hazeState = LocalHazeState.current,
-                blurRadius = 24.dp,
-                shadowElevation = 16.dp
+                blurRadius = 26.dp,
+                shadowElevation = 18.dp,
+                strongBorder = true
             )
             .padding(6.dp)
     ) {
         val tabWidth = maxWidth / tabs.size
         val indicatorOffset by animateDpAsState(
             targetValue = tabWidth * selectedIndex,
-            animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f),
+            animationSpec = spring(dampingRatio = 0.8f, stiffness = 360f),
             label = "bottomPillSlide"
         )
 
-        Box(Modifier.fillMaxWidth().height(52.dp)) {
-            // Animated sliding liquid pill behind tab icons/labels
+        Box(Modifier.fillMaxWidth().height(54.dp)) {
+            // Animated sliding liquid pill droplet
             Box(
                 Modifier
                     .offset(x = indicatorOffset)
@@ -455,7 +460,7 @@ private fun LiquidGlassBottomBar(
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = if (selected) Glass.Cyan else Glass.TextSecondary,
+                            tint = if (selected) (if (isDark) Color.White else Glass.Cyan) else Glass.TextSecondary,
                             modifier = Modifier.size(21.dp)
                         )
                         Spacer(Modifier.height(3.dp))

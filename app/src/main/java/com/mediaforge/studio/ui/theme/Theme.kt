@@ -28,6 +28,7 @@ data class GlassPalette(
     val stroke: Color,
     val cyan: Color,
     val emerald: Color,
+    val indigo: Color,
     val amber: Color,
     val danger: Color,
     val onAccent: Color,
@@ -38,43 +39,45 @@ data class GlassPalette(
 
 val DarkGlassPalette = GlassPalette(
     isDark = true,
-    bg = Color(0xFF0E1116),
-    surface = Color(0xFF151921),
-    cardFill = Color.White.copy(alpha = 0.06f),
-    cardFillSubtle = Color.White.copy(alpha = 0.035f),
-    navFill = Color(0xA612161F),
-    stroke = Color.White.copy(alpha = 0.12f),
+    bg = Color(0xFF0A0E17),
+    surface = Color(0xFF131A29),
+    cardFill = Color.White.copy(alpha = 0.08f),
+    cardFillSubtle = Color.White.copy(alpha = 0.05f),
+    navFill = Color(0x8E101726),
+    stroke = Color.White.copy(alpha = 0.14f),
     cyan = Color(0xFF38BDF8),
     emerald = Color(0xFF10B981),
+    indigo = Color(0xFF6366F1),
     amber = Color(0xFFF59E0B),
     danger = Color(0xFFF43F5E),
-    onAccent = Color(0xFF0E1116),
-    textPrimary = Color(0xFFF1F5F9),
-    textSecondary = Color(0xFF94A3B8),
-    textDim = Color(0xFF64748B)
+    onAccent = Color(0xFF0A0E17),
+    textPrimary = Color(0xFFF8FAFC),
+    textSecondary = Color(0xFFA6B4CC),
+    textDim = Color(0xFF6C7D99)
 )
 
 val LightGlassPalette = GlassPalette(
     isDark = false,
-    bg = Color(0xFFF4F6F9),
+    bg = Color(0xFFF1F6FA),
     surface = Color(0xFFFFFFFF),
-    cardFill = Color.White.copy(alpha = 0.78f),
-    cardFillSubtle = Color.White.copy(alpha = 0.56f),
-    navFill = Color(0xBAFFFFFF),
-    stroke = Color.Black.copy(alpha = 0.08f),
+    cardFill = Color.White.copy(alpha = 0.65f),
+    cardFillSubtle = Color.White.copy(alpha = 0.45f),
+    navFill = Color(0xA6FFFFFF),
+    stroke = Color(0xFF0F172A).copy(alpha = 0.08f),
     cyan = Color(0xFF0284C7),
     emerald = Color(0xFF059669),
+    indigo = Color(0xFF4F46E5),
     amber = Color(0xFFD97706),
     danger = Color(0xFFE11D48),
     onAccent = Color.White,
     textPrimary = Color(0xFF0F172A),
     textSecondary = Color(0xFF475569),
-    textDim = Color(0xFF94A3B8)
+    textDim = Color(0xFF8A99AE)
 )
 
 val LocalGlassPalette = staticCompositionLocalOf { DarkGlassPalette }
 
-/** Refined, theme-aware Liquid Glass design tokens. */
+/** High-translucency True Liquid Glass design tokens across Light & Dark themes. */
 object Glass {
     val current: GlassPalette
         @Composable @ReadOnlyComposable get() = LocalGlassPalette.current
@@ -88,6 +91,7 @@ object Glass {
     val Stroke: Color @Composable @ReadOnlyComposable get() = current.stroke
     val Cyan: Color @Composable @ReadOnlyComposable get() = current.cyan
     val Emerald: Color @Composable @ReadOnlyComposable get() = current.emerald
+    val Indigo: Color @Composable @ReadOnlyComposable get() = current.indigo
     val Amber: Color @Composable @ReadOnlyComposable get() = current.amber
     val Danger: Color @Composable @ReadOnlyComposable get() = current.danger
     val OnAccent: Color @Composable @ReadOnlyComposable get() = current.onAccent
@@ -106,7 +110,7 @@ private val DarkScheme = darkColorScheme(
     onBackground = DarkGlassPalette.textPrimary,
     surface = DarkGlassPalette.surface,
     onSurface = DarkGlassPalette.textPrimary,
-    surfaceVariant = Color(0xFF1A202B),
+    surfaceVariant = Color(0xFF182032),
     onSurfaceVariant = DarkGlassPalette.textSecondary,
     outline = DarkGlassPalette.stroke,
     error = DarkGlassPalette.danger
@@ -122,22 +126,22 @@ private val LightScheme = lightColorScheme(
     onBackground = LightGlassPalette.textPrimary,
     surface = LightGlassPalette.surface,
     onSurface = LightGlassPalette.textPrimary,
-    surfaceVariant = Color(0xFFE8EDF3),
+    surfaceVariant = Color(0xFFE6EEF5),
     onSurfaceVariant = LightGlassPalette.textSecondary,
     outline = LightGlassPalette.stroke,
     error = LightGlassPalette.danger
 )
 
 private val Type = Typography(
-    headlineMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, letterSpacing = (-0.4).sp),
-    titleLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, letterSpacing = (-0.2).sp),
+    headlineMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.2).sp),
     titleMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
     bodyLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 15.sp, lineHeight = 22.sp),
     bodyMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 12.sp, lineHeight = 17.sp),
     labelLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
     labelMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 12.sp, letterSpacing = 0.2.sp),
-    labelSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.6.sp)
+    labelSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp)
 )
 
 @Composable
