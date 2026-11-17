@@ -123,7 +123,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Settings", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
+                Text("NexaKit · Settings", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
                 Text("Appearance • Gemini Vault • Defaults • Storage", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
             }
             if (online) OnlineBadge() else OfflineBadge(compact = true)
@@ -445,6 +445,17 @@ fun SettingsScreen(vm: SettingsViewModel) {
                     }
                 }
             }
+        }
+
+        // ------------------------------------------------------------------ 6. About NexaKit
+        GlassCard(Modifier.fillMaxWidth()) {
+            SectionLabel("About NexaKit")
+            Spacer(Modifier.height(6.dp))
+            Text("NexaKit v1.1.0 (Build 2)", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+            Spacer(Modifier.height(2.dp))
+            Hint("All-in-one offline Media & PDF suite + real-time Gemini AI Copilot with local Room History Vault & Android Share Target.")
+            Spacer(Modifier.height(4.dp))
+            Text("Package: com.mediaforge.studio", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
         }
     }
 }

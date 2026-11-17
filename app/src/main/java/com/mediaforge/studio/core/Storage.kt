@@ -14,13 +14,13 @@ import java.io.OutputStream
 
 enum class OutputKind { IMAGE, DOCUMENT }
 
-/** A file that MediaForge has written to shared storage. */
+/** A file that NexaKit has written to shared storage. */
 data class SavedFile(
     val uri: Uri,
     val name: String,
     val mime: String,
     val sizeBytes: Long,
-    /** Human readable folder, e.g. `Pictures/MediaForge/PDF_Export`. */
+    /** Human readable folder, e.g. `Pictures/NexaKit/PDF_Export`. */
     val folder: String,
     val tool: String,
     val timestamp: Long = System.currentTimeMillis()
@@ -31,11 +31,11 @@ data class SavedFile(
 
 /**
  * Saves outputs through MediaStore (scoped storage on API 29+) into
- * `Pictures/MediaForge[/sub]` and `Documents/MediaForge[/sub]`.
+ * `Pictures/NexaKit[/sub]` and `Documents/NexaKit[/sub]`.
  * Legacy devices (API 26-28) fall back to direct file writes + media scan.
  */
 object Storage {
-    const val ROOT = "MediaForge"
+    const val ROOT = "NexaKit"
 
     fun folderPath(kind: OutputKind, subFolder: String? = null): String {
         val base = if (kind == OutputKind.IMAGE) Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_DOCUMENTS

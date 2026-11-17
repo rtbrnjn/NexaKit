@@ -105,7 +105,7 @@ class PdfToDocxViewModel(app: Application) : ToolViewModel(app) {
                 PdfEngine.pdfToDocx(src.file, breaks, out) { setProgress("Extracting text…", it) }
             }
             publish(listOf(saved))
-            showInfo("Word document saved to Documents/MediaForge (${FileUtils.formatBytes(saved.sizeBytes)}).")
+            showInfo("Word document saved to Documents/NexaKit (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 }
@@ -264,7 +264,7 @@ class PdfToImagesViewModel(app: Application) : ToolViewModel(app) {
                 }
             }
             publish(saved)
-            showInfo("${saved.size} image(s) saved to Pictures/MediaForge/PDF_Export.")
+            showInfo("${saved.size} image(s) saved to Pictures/NexaKit/PDF_Export.")
         }
     }
 }

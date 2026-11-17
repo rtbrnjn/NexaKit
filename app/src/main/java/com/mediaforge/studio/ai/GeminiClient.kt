@@ -2,6 +2,11 @@ package com.mediaforge.studio.ai
 
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,11 +39,77 @@ data class ProductCopy(
     val hashtags: List<String>
 ) {
     val hashtagLine get() = hashtags.joinToString(" ") { if (it.startsWith("#")) it else "#$it" }
-    val captionWithTags get() = caption.trim() + "\n\n" + hashtagLine
+    val captionWithTags get() = (caption.trim() + if (hashtagLine.isNotBlank()) "\n\n$hashtagLine" else "").trim()
     fun asPlainText(): String = buildString {
         appendLine("TITLE"); appendLine(title); appendLine()
         appendLine("VIDEO HOOKS"); hooks.forEachIndexed { i, h -> appendLine("${i + 1}. $h") }; appendLine()
         appendLine("CAPTION"); appendLine(captionWithTags)
+    }
+
+    companion object {
+        /** Parses streamed section text (`TITLE:`, `HOOKS:`, `CAPTION:`, `HASHTAGS:`) incrementally or completely. */
+        fun parseStreaming(raw: String): ProductCopy {
+            val cleaned = raw.replace("```", "").trim()
+            val lines = cleaned.lines()
+            var section = ""
+            val titleLines = ArrayList<String>()
+            val hookLines = ArrayList<String>()
+            val captionLines = ArrayList<String>()
+            val tagTokens = ArrayList<String>()
+
+            val headerRegex = Regex("""^(?:\*{0,2})?(TITLE|HOOKS|VIDEO HOOKS|CAPTION|HASHTAGS)(?:\*{0,2})?\s*:\s*(.*)$""", RegexOption.IGNORE_CASE)
+            for (rawLine in lines) {
+                val line = rawLine.trim()
+                val match = headerRegex.matchEntire(line)
+                if (match != null) {
+                    val key = match.groupValues[1].uppercase()
+                    val inlineVal = match.groupValues[2].trim()
+                    section = when {
+                        key.contains("TITLE") -> "TITLE"
+                        key.contains("HOOK") -> "HOOKS"
+                        key.contains("CAPTION") -> "CAPTION"
+                        key.contains("HASHTAG") -> "HASHTAGS"
+                        else -> section
+                    }
+                    if (inlineVal.isNotEmpty()) {
+                        when (section) {
+                            "TITLE" -> titleLines += inlineVal
+                            "HOOKS" -> hookLines += inlineVal
+                            "CAPTION" -> captionLines += inlineVal
+                            "HASHTAGS" -> tagTokens += inlineVal.split(Regex("\\s+")).filter { it.isNotBlank() }
+                        }
+                    }
+                    continue
+                }
+                when (section) {
+                    "TITLE" -> if (line.isNotEmpty()) titleLines += line
+                    "HOOKS" -> if (line.isNotEmpty()) {
+                        val stripped = line.replace(Regex("""^(?:\d+[.)]|[-*•])\s*"""), "").trim()
+                        if (stripped.isNotEmpty()) hookLines += stripped
+                    }
+                    "CAPTION" -> captionLines += rawLine.trimEnd()
+                    "HASHTAGS" -> if (line.isNotEmpty()) {
+                        tagTokens += line.split(Regex("[\\s,]+")).filter { it.isNotBlank() }
+                    }
+                }
+            }
+
+            val parsedTitle = titleLines.joinToString(" ").trim()
+            val parsedHooks = hookLines.filter { it.isNotBlank() }.take(3)
+            val parsedCaption = captionLines.joinToString("\n").trim()
+            val parsedTags = tagTokens
+                .map { it.trim().trimEnd(',', '.') }
+                .filter { it.length > 1 }
+                .map { if (it.startsWith("#")) it else "#$it" }
+                .distinct()
+
+            return ProductCopy(
+                title = parsedTitle.ifEmpty { if (section.isEmpty()) cleaned.lines().firstOrNull().orEmpty() else "" },
+                hooks = parsedHooks,
+                caption = parsedCaption,
+                hashtags = parsedTags
+            )
+        }
     }
 }
 
@@ -67,17 +138,15 @@ enum class DocTask(val label: String, val prompt: String) {
 }
 
 /**
- * Minimal Gemini REST client (HttpURLConnection + org.json) – no SDK, no version conflicts.
- * The API key travels in the `x-goog-api-key` header, never in the URL.
+ * Lightweight Gemini REST client using `HttpURLConnection` + `org.json` + SSE Kotlin `Flow`.
+ * Defaults to zero thinking budget on 2.5 Flash for low-latency real-time streaming.
  */
 class GeminiClient {
 
-    // ------------------------------------------------------------------ public API
-
-    /** Validates the key and returns the models that support generateContent. */
+    /** Validates the key and returns models supporting generateContent. */
     suspend fun testConnection(apiKey: String): List<String> = withContext(Dispatchers.IO) {
         requireKey(apiKey)
-        val body = http("GET", "$BASE/models?pageSize=200", apiKey, null)
+        val body = httpGet("$BASE/models?pageSize=200", apiKey)
         val arr = JSONObject(body).optJSONArray("models") ?: JSONArray()
         (0 until arr.length()).mapNotNull { i ->
             val m = arr.getJSONObject(i)
@@ -90,57 +159,55 @@ class GeminiClient {
         }.sortedDescending()
     }
 
-    suspend fun generateProductCopy(
+    /** Streams Product Copywriter output word-by-word via `:streamGenerateContent?alt=sse`. */
+    fun streamProductCopy(
         apiKey: String,
         model: String,
         imageJpeg: ByteArray,
         language: CopyLanguage,
         notes: String
-    ): ProductCopy = withContext(Dispatchers.IO) {
-        requireKey(apiKey)
+    ): Flow<String> {
         val prompt = buildString {
             appendLine("You are a senior e-commerce copywriter and short-form video strategist.")
             appendLine("Study the product in the photo and write marketing copy in ${language.promptName}.")
-            appendLine("- title: one catchy product title, max 70 characters, no quotes.")
-            appendLine("- hooks: EXACTLY 3 different 15-second review-style video hooks (each 1-2 punchy spoken sentences, max 28 words).")
-            appendLine("- caption: a persuasive marketplace / social caption of 60-110 words with short lines, at most 3 tasteful emojis and a clear call to action. Do NOT include hashtags in the caption.")
-            appendLine("- hashtags: 8-12 relevant hashtags (each starting with #, no spaces).")
-            appendLine("Only describe what is plausibly visible; never invent specifications, prices or certifications.")
+            appendLine("Follow this EXACT plain section format (no markdown code fences):")
+            appendLine("TITLE:")
+            appendLine("<one catchy product title, max 70 characters, no quotes>")
+            appendLine()
+            appendLine("HOOKS:")
+            appendLine("1. <15-second review video hook #1, punchy spoken sentence, max 26 words>")
+            appendLine("2. <15-second review video hook #2>")
+            appendLine("3. <15-second review video hook #3>")
+            appendLine()
+            appendLine("CAPTION:")
+            appendLine("<persuasive marketplace/social caption of 60-100 words, short lines, at most 3 tasteful emojis, clear CTA, NO hashtags here>")
+            appendLine()
+            appendLine("HASHTAGS:")
+            appendLine("<8-12 relevant hashtags separated by spaces>")
+            appendLine()
+            appendLine("Only describe what is visibly clear; never invent prices, specs, or certifications.")
             if (notes.isNotBlank()) appendLine("Seller notes to respect: ${notes.trim()}")
         }
-        val schema = JSONObject()
-            .put("type", "OBJECT")
-            .put(
-                "properties", JSONObject()
-                    .put("title", JSONObject().put("type", "STRING"))
-                    .put("hooks", JSONObject().put("type", "ARRAY").put("items", JSONObject().put("type", "STRING")))
-                    .put("caption", JSONObject().put("type", "STRING"))
-                    .put("hashtags", JSONObject().put("type", "ARRAY").put("items", JSONObject().put("type", "STRING")))
-            )
-            .put("required", JSONArray(listOf("title", "hooks", "caption", "hashtags")))
-
-        val text = generate(
-            apiKey, model,
-            listOf(GeminiContent("user", listOf(GeminiPart.Image(imageJpeg), GeminiPart.Text(prompt)))),
+        return streamGenerate(
+            apiKey = apiKey,
+            model = model,
+            contents = listOf(GeminiContent("user", listOf(GeminiPart.Image(imageJpeg), GeminiPart.Text(prompt)))),
             systemInstruction = null,
-            jsonSchema = schema,
-            temperature = 0.9
+            temperature = 0.85
         )
-        parseCopy(text)
     }
 
-    /** Document Q&A / summarisation. `history` must end with the latest user turn. */
-    suspend fun chatAboutDocument(
+    /** Streams PDF Q&A / summarisation word-by-word via `:streamGenerateContent?alt=sse`. */
+    fun streamChatAboutDocument(
         apiKey: String,
         model: String,
         documentText: String?,
         pageImages: List<ByteArray>,
         history: List<GeminiContent>
-    ): String = withContext(Dispatchers.IO) {
-        requireKey(apiKey)
+    ): Flow<String> {
         val system = buildString {
-            appendLine("You are MediaForge's document assistant. Answer strictly from the document provided; if the answer is not in the document, say so.")
-            appendLine("Reply in the language the user writes in unless asked to translate. Use clean Markdown.")
+            appendLine("You are NexaKit's document assistant. Answer strictly from the document provided; if the answer is not in the document, say so.")
+            appendLine("Reply in the language the user writes in unless asked to translate. Use clean, concise Markdown.")
             if (!documentText.isNullOrBlank()) {
                 appendLine()
                 appendLine("=== DOCUMENT START ===")
@@ -157,19 +224,90 @@ class GeminiClient {
                 contents[first] = contents[first].copy(parts = imgs + intro + contents[first].parts)
             }
         }
-        generate(apiKey, model, contents, system, null, temperature = 0.4)
+        return streamGenerate(apiKey, model, contents, system, temperature = 0.4)
     }
 
-    // ------------------------------------------------------------------ core call
+    // ------------------------------------------------------------------ SSE streaming core
 
-    private fun generate(
+    private fun streamGenerate(
         apiKey: String,
         model: String,
         contents: List<GeminiContent>,
         systemInstruction: String?,
-        jsonSchema: JSONObject?,
         temperature: Double
-    ): String {
+    ): Flow<String> = flow {
+        requireKey(apiKey)
+        val body = buildRequestBody(contents, systemInstruction, temperature, model)
+        val conn = (URL("$BASE/models/$model:streamGenerateContent?alt=sse").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 20_000
+            readTimeout = 120_000
+            doOutput = true
+            setRequestProperty("x-goog-api-key", apiKey)
+            setRequestProperty("Accept", "text/event-stream")
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+        }
+        try {
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                val errText = conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                throw mapError(code, errText)
+            }
+            val reader = conn.inputStream.bufferedReader(Charsets.UTF_8)
+            val eventData = StringBuilder()
+            var emittedAny = false
+
+            while (currentCoroutineContext().isActive) {
+                val line = reader.readLine() ?: break
+                when {
+                    line.startsWith("data:") -> {
+                        val payload = line.removePrefix("data:").trimStart()
+                        if (payload == "[DONE]") break
+                        if (eventData.isNotEmpty()) eventData.append('\n')
+                        eventData.append(payload)
+                    }
+                    line.isBlank() -> {
+                        if (eventData.isNotEmpty()) {
+                            val chunk = extractSseText(eventData.toString())
+                            eventData.clear()
+                            if (chunk.isNotEmpty()) {
+                                emittedAny = true
+                                emit(chunk)
+                            }
+                        }
+                    }
+                }
+            }
+            if (eventData.isNotEmpty()) {
+                val chunk = extractSseText(eventData.toString())
+                if (chunk.isNotEmpty()) {
+                    emittedAny = true
+                    emit(chunk)
+                }
+            }
+            if (!emittedAny) {
+                throw GeminiException(GeminiException.Kind.BLOCKED, "Gemini returned an empty response.")
+            }
+        } catch (e: GeminiException) {
+            throw e
+        } catch (_: UnknownHostException) {
+            throw GeminiException(GeminiException.Kind.OFFLINE, "No internet connection – Offline Mode is active.")
+        } catch (_: SocketTimeoutException) {
+            throw GeminiException(GeminiException.Kind.OFFLINE, "The request timed out. Check your connection and retry.")
+        } catch (e: IOException) {
+            throw GeminiException(GeminiException.Kind.OFFLINE, "Network error: ${e.message ?: "connection failed"}")
+        } finally {
+            conn.disconnect()
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private fun buildRequestBody(
+        contents: List<GeminiContent>,
+        systemInstruction: String?,
+        temperature: Double,
+        model: String
+    ): JSONObject {
         val body = JSONObject()
         body.put("contents", JSONArray().apply { contents.forEach { put(it.toJson()) } })
         if (systemInstruction != null) {
@@ -179,80 +317,50 @@ class GeminiClient {
             )
         }
         val gen = JSONObject().put("temperature", temperature)
-        if (jsonSchema != null) {
-            gen.put("responseMimeType", "application/json").put("responseSchema", jsonSchema)
+        if (model.contains("2.5")) {
+            val budget = if (model.contains("pro")) 128 else 0
+            gen.put("thinkingConfig", JSONObject().put("thinkingBudget", budget))
         }
         body.put("generationConfig", gen)
-
-        val response = http("POST", "$BASE/models/$model:generateContent", apiKey, body.toString())
-        return extractText(JSONObject(response))
+        return body
     }
 
-    private fun extractText(json: JSONObject): String {
+    private fun extractSseText(rawJson: String): String {
+        val json = runCatching { JSONObject(rawJson) }.getOrNull() ?: return ""
         val candidates = json.optJSONArray("candidates")
         if (candidates == null || candidates.length() == 0) {
             val reason = json.optJSONObject("promptFeedback")?.optString("blockReason").orEmpty()
-            throw GeminiException(
-                GeminiException.Kind.BLOCKED,
-                if (reason.isNotEmpty()) "Request blocked by Gemini safety filters ($reason)." else "Gemini returned no answer."
-            )
+            if (reason.isNotEmpty()) {
+                throw GeminiException(GeminiException.Kind.BLOCKED, "Request blocked by Gemini safety filters ($reason).")
+            }
+            return ""
         }
         val cand = candidates.getJSONObject(0)
-        val parts = cand.optJSONObject("content")?.optJSONArray("parts")
+        val parts = cand.optJSONObject("content")?.optJSONArray("parts") ?: return ""
         val sb = StringBuilder()
-        if (parts != null) for (i in 0 until parts.length()) {
+        for (i in 0 until parts.length()) {
             val p = parts.getJSONObject(i)
-            if (!p.optBoolean("thought", false) && p.has("text")) sb.append(p.getString("text"))
-        }
-        val text = sb.toString().trim()
-        if (text.isEmpty()) {
-            val finish = cand.optString("finishReason")
-            throw GeminiException(
-                GeminiException.Kind.BLOCKED,
-                "Gemini returned an empty answer" + if (finish.isNotEmpty()) " (finish reason: $finish)." else "."
-            )
-        }
-        return text
-    }
-
-    private fun parseCopy(raw: String): ProductCopy {
-        val cleaned = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-        return try {
-            val o = JSONObject(cleaned)
-            fun list(key: String): List<String> {
-                val a = o.optJSONArray(key) ?: return emptyList()
-                return (0 until a.length()).map { a.getString(it).trim() }.filter { it.isNotEmpty() }
+            if (!p.optBoolean("thought", false) && p.has("text")) {
+                sb.append(p.getString("text"))
             }
-            ProductCopy(
-                title = o.optString("title").trim(),
-                hooks = list("hooks").take(3),
-                caption = o.optString("caption").trim(),
-                hashtags = list("hashtags")
-            )
-        } catch (e: Exception) {
-            throw GeminiException(GeminiException.Kind.UNKNOWN, "Gemini replied in an unexpected format. Please try again.")
         }
+        return sb.toString()
     }
 
-    // ------------------------------------------------------------------ HTTP
+    // ------------------------------------------------------------------ HTTP helpers
 
     private fun requireKey(key: String) {
-        if (key.isBlank()) throw GeminiException(GeminiException.Kind.NO_KEY, "Add your Gemini API key in Settings / Vault first.")
+        if (key.isBlank()) throw GeminiException(GeminiException.Kind.NO_KEY, "Add your Gemini API key in Settings first.")
     }
 
-    private fun http(method: String, url: String, apiKey: String, body: String?): String {
+    private fun httpGet(url: String, apiKey: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         try {
-            conn.requestMethod = method
+            conn.requestMethod = "GET"
             conn.connectTimeout = 20_000
-            conn.readTimeout = 120_000
+            conn.readTimeout = 30_000
             conn.setRequestProperty("x-goog-api-key", apiKey)
             conn.setRequestProperty("Accept", "application/json")
-            if (body != null) {
-                conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            }
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
@@ -260,9 +368,9 @@ class GeminiClient {
             return text
         } catch (e: GeminiException) {
             throw e
-        } catch (e: UnknownHostException) {
+        } catch (_: UnknownHostException) {
             throw GeminiException(GeminiException.Kind.OFFLINE, "No internet connection – Offline Mode is active.")
-        } catch (e: SocketTimeoutException) {
+        } catch (_: SocketTimeoutException) {
             throw GeminiException(GeminiException.Kind.OFFLINE, "The request timed out. Check your connection and retry.")
         } catch (e: IOException) {
             throw GeminiException(GeminiException.Kind.OFFLINE, "Network error: ${e.message ?: "connection failed"}")
@@ -275,7 +383,7 @@ class GeminiClient {
         val apiMsg = runCatching { JSONObject(body).optJSONObject("error")?.optString("message") }.getOrNull().orEmpty()
         return when (code) {
             400 -> if (apiMsg.contains("API key", ignoreCase = true))
-                GeminiException(GeminiException.Kind.AUTH, "The API key is not valid. Check it in Settings / Vault.")
+                GeminiException(GeminiException.Kind.AUTH, "The API key is not valid. Check it in Settings.")
             else GeminiException(GeminiException.Kind.BAD_REQUEST, apiMsg.ifEmpty { "Bad request (400)." })
             401, 403 -> GeminiException(GeminiException.Kind.AUTH, apiMsg.ifEmpty { "The API key was rejected (HTTP $code)." })
             404 -> GeminiException(GeminiException.Kind.BAD_REQUEST, apiMsg.ifEmpty { "Model not found – pick another model in Settings." })

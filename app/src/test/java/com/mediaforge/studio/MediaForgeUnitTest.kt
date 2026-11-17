@@ -9,6 +9,7 @@ import com.mediaforge.studio.pdf.DocxBuilder
 import com.mediaforge.studio.pdf.PdfCompressPreset
 import com.mediaforge.studio.pdf.PdfEngine
 import com.mediaforge.studio.pdf.PdfException
+import com.mediaforge.studio.vm.ExtractDepth
 import com.mediaforge.studio.vm.SplitPdfViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -112,5 +113,32 @@ class MediaForgeUnitTest {
         assertEquals("#coffee #mug", copy.hashtagLine)
         assertTrue(copy.asPlainText().contains("1. Hook one"))
         assertTrue(copy.asPlainText().contains("#coffee #mug"))
+    }
+
+    @Test
+    fun productCopy_parseStreamingExtractsSections() {
+        val raw = """
+            TITLE:
+            Minimalist Matte Ceramic Coffee Mug
+
+            HOOKS:
+            1. Stop drinking lukewarm coffee at your desk!
+            2. This matte mug keeps heat twice as long.
+            3. Upgrade your morning routine in seconds.
+
+            CAPTION:
+            Built for long workdays with a comfortable handle.
+            Grab yours today with free shipping!
+
+            HASHTAGS:
+            #coffeemug desksetup ceramic #morningcoffee
+        """.trimIndent()
+        val parsed = ProductCopy.parseStreaming(raw)
+        assertEquals("Minimalist Matte Ceramic Coffee Mug", parsed.title)
+        assertEquals(3, parsed.hooks.size)
+        assertTrue(parsed.hooks[0].startsWith("Stop drinking"))
+        assertTrue(parsed.caption.contains("comfortable handle"))
+        assertEquals(listOf("#coffeemug", "#desksetup", "#ceramic", "#morningcoffee"), parsed.hashtags)
+        assertEquals(12_000, ExtractDepth.FAST.maxChars)
     }
 }

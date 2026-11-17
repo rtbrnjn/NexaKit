@@ -33,12 +33,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.StopCircle
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,6 +70,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mediaforge.studio.ai.CopyLanguage
 import com.mediaforge.studio.ai.DocTask
 import com.mediaforge.studio.core.FileUtils
+import com.mediaforge.studio.data.db.AiHistoryKind
 import com.mediaforge.studio.ui.components.BitmapImage
 import com.mediaforge.studio.ui.components.ChoiceRow
 import com.mediaforge.studio.ui.components.EmptyPicker
@@ -78,13 +87,22 @@ import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.StatusBanner
 import com.mediaforge.studio.ui.components.ToolPage
 import com.mediaforge.studio.ui.theme.Glass
+import com.mediaforge.studio.vm.AiVaultViewModel
 import com.mediaforge.studio.vm.CopywriterViewModel
+import com.mediaforge.studio.vm.ExtractDepth
 import com.mediaforge.studio.vm.PdfAiViewModel
 import com.mediaforge.studio.vm.SettingsViewModel
 
-private enum class AiTool(val label: String, val icon: ImageVector) {
-    PDF_CHAT("PDF Assistant", Icons.Rounded.Description),
-    COPYWRITER("Photo Copywriter", Icons.Rounded.Campaign)
+enum class AiTool(val label: String, val icon: ImageVector) {
+    PDF_CHAT("PDF AI", Icons.Rounded.Description),
+    COPYWRITER("Copywriter", Icons.Rounded.Campaign),
+    VAULT("AI Vault", Icons.Rounded.Bookmarks)
+}
+
+private enum class VaultFilter(val label: String) {
+    ALL("All"),
+    PDF("PDF Summaries"),
+    COPY("Copywriting")
 }
 
 private fun copyToClipboard(ctx: Context, label: String, text: String) {
@@ -98,12 +116,22 @@ fun GeminiAiScreen(
     settingsVm: SettingsViewModel,
     onOpenVault: () -> Unit,
     copyVm: CopywriterViewModel = viewModel(),
-    pdfAiVm: PdfAiViewModel = viewModel()
+    pdfAiVm: PdfAiViewModel = viewModel(),
+    vaultVm: AiVaultViewModel = viewModel(),
+    requestedTool: AiTool? = null,
+    onToolHandled: () -> Unit = {}
 ) {
     val online by settingsVm.online.collectAsState()
     val apiKey by settingsVm.savedKey.collectAsState()
     val model by settingsVm.model.collectAsState()
     var active by rememberSaveable { mutableStateOf(AiTool.PDF_CHAT) }
+
+    LaunchedEffect(requestedTool) {
+        if (requestedTool != null) {
+            active = requestedTool
+            onToolHandled()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -115,8 +143,8 @@ fun GeminiAiScreen(
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Gemini AI", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
-                    Text("Smart Document Q&A & Copywriter • $model", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
+                    Text("NexaKit · Gemini AI", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
+                    Text("Real-Time SSE Streaming • $model", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
                 }
                 if (online && apiKey.isNotBlank()) OnlineBadge() else OfflineBadge(compact = true)
             }
@@ -124,7 +152,7 @@ fun GeminiAiScreen(
             if (!online) {
                 GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
                     Text(
-                        "Offline Mode — All Media & PDF Tools Ready. Connect to the internet when you want Gemini AI analysis.",
+                        "Offline Mode — All Media & PDF Tools Ready. Connect to the internet for live Gemini AI streaming.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Glass.TextPrimary
                     )
@@ -168,12 +196,12 @@ fun GeminiAiScreen(
                                 else Modifier
                             )
                             .clickable { active = tool }
-                            .padding(vertical = 9.dp, horizontal = 8.dp),
+                            .padding(vertical = 9.dp, horizontal = 4.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(tool.icon, null, tint = if (selected) Glass.Cyan else Glass.TextSecondary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
+                        Icon(tool.icon, null, tint = if (selected) Glass.Cyan else Glass.TextSecondary, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(5.dp))
                         Text(
                             tool.label,
                             color = if (selected) Glass.TextPrimary else Glass.TextSecondary,
@@ -190,31 +218,36 @@ fun GeminiAiScreen(
         when (active) {
             AiTool.PDF_CHAT -> PdfAssistantTab(pdfAiVm, aiReady, Modifier.weight(1f))
             AiTool.COPYWRITER -> CopywriterTab(copyVm, aiReady, Modifier.weight(1f))
+            AiTool.VAULT -> AiVaultTab(vaultVm, Modifier.weight(1f))
         }
     }
 }
 
-// ============================================================ 1. PDF Summariser & Q&A Chat
+// ============================================================ 1. PDF Summariser & Streaming Chat
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val source by vm.source.collectAsState()
+    val pageRange by vm.pageRange.collectAsState()
+    val depth by vm.depth.collectAsState()
     val extractInfo by vm.extractInfo.collectAsState()
     val messages by vm.messages.collectAsState()
+    val isStreaming by vm.isStreaming.collectAsState()
     val progress by vm.progress.collectAsState()
     val message by vm.message.collectAsState()
 
     var question by rememberSaveable { mutableStateOf("") }
+    var showScope by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.pick(uri)
     }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length) {
+        if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
     }
 
     Box(modifier.fillMaxSize()) {
@@ -231,7 +264,7 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
             if (src == null) {
                 EmptyPicker(
                     title = "Open a PDF Document",
-                    subtitle = "Extracts text locally before querying Gemini",
+                    subtitle = "Smart page range extraction + real-time Gemini SSE streaming",
                     icon = Icons.Rounded.PictureAsPdf,
                     onClick = { picker.launch(arrayOf("application/pdf")) }
                 )
@@ -242,12 +275,44 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(src.name, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${src.pageCount}p • ${FileUtils.formatBytes(src.sizeBytes)} • $extractInfo", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 2)
+                            Text("${src.pageCount}p • $extractInfo", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 2)
                         }
+                        GlassIconButton(Icons.Rounded.Tune, "Page scope", { showScope = !showScope }, tint = if (showScope) Glass.Cyan else Glass.TextSecondary)
                         if (messages.isNotEmpty()) {
                             GlassIconButton(Icons.Rounded.DeleteSweep, "Clear chat", vm::clearChat)
                         }
                         GlassButton("Open", primary = false, compact = true, onClick = { picker.launch(arrayOf("application/pdf")) })
+                    }
+
+                    if (showScope) {
+                        Spacer(Modifier.height(10.dp))
+                        SectionLabel("Smart Extraction Scope")
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            GlassTextField(
+                                value = pageRange,
+                                onValueChange = vm::setPageRange,
+                                label = "Pages (e.g. 1-5, all)",
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            GlassButton("Apply", primary = false, compact = true, onClick = vm::applyRange)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("1-5", "1-10", "all").forEach { preset ->
+                                GlassChip(
+                                    text = if (preset == "all") "All (${src.pageCount}p)" else "Pages $preset",
+                                    selected = pageRange.equals(preset, ignoreCase = true),
+                                    onClick = { vm.setPageRange(preset); vm.applyRange() }
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        SectionLabel("Character Budget")
+                        Spacer(Modifier.height(6.dp))
+                        ChoiceRow(ExtractDepth.entries, depth, { it.label }, vm::setDepth)
                     }
                 }
 
@@ -256,7 +321,7 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
                         GlassChip(
                             text = task.label,
                             selected = false,
-                            onClick = { if (aiReady) vm.runDocTask(task) },
+                            onClick = { if (aiReady && !isStreaming) vm.runDocTask(task) },
                             color = Glass.Emerald
                         )
                     }
@@ -275,7 +340,7 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
                             GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(16.dp)) {
                                 Text("Ready to analyze \"${src.name}\"", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                                 Spacer(Modifier.height(4.dp))
-                                Hint("Tap Summarize / Key Takeaways / Translate above or ask a question below.")
+                                Hint("Tap a quick action above or ask a question below. Results stream live and save to AI Vault.")
                             }
                         }
                     } else {
@@ -292,7 +357,7 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
                                 )
                                 Column(
                                     Modifier
-                                        .widthIn(max = 310.dp)
+                                        .widthIn(max = 315.dp)
                                         .clip(shape)
                                         .background(
                                             if (msg.fromUser) Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.18f else 0.13f)
@@ -305,8 +370,18 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
                                         )
                                         .padding(12.dp)
                                 ) {
-                                    Text(msg.text, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
-                                    if (!msg.fromUser) {
+                                    if (!msg.fromUser && msg.isStreaming) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.8.dp, color = Glass.Cyan)
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Streaming…", style = MaterialTheme.typography.labelSmall, color = Glass.Cyan)
+                                        }
+                                        if (msg.text.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                                    }
+                                    if (msg.text.isNotEmpty()) {
+                                        Text(msg.text, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
+                                    }
+                                    if (!msg.fromUser && !msg.isStreaming && msg.text.isNotBlank()) {
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                             GlassIconButton(
                                                 Icons.Rounded.ContentCopy,
@@ -331,26 +406,38 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Box(
-                        Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (aiReady && question.isNotBlank()) Glass.Cyan else Glass.CardFill
+                    if (isStreaming) {
+                        Box(
+                            Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(Glass.Danger.copy(alpha = 0.16f))
+                                .border(1.dp, Glass.Danger.copy(alpha = 0.5f), CircleShape)
+                                .clickable { vm.stopStreaming() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.StopCircle, "Stop", tint = Glass.Danger)
+                        }
+                    } else {
+                        Box(
+                            Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(if (aiReady && question.isNotBlank()) Glass.Cyan else Glass.CardFill)
+                                .border(1.dp, Glass.Stroke, CircleShape)
+                                .clickable(enabled = aiReady && question.isNotBlank()) {
+                                    val q = question
+                                    question = ""
+                                    vm.ask(q)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.Send,
+                                "Send",
+                                tint = if (aiReady && question.isNotBlank()) Glass.OnAccent else Glass.TextDim
                             )
-                            .border(1.dp, Glass.Stroke, CircleShape)
-                            .clickable(enabled = aiReady && question.isNotBlank()) {
-                                val q = question
-                                question = ""
-                                vm.ask(q)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.Send,
-                            "Send",
-                            tint = if (aiReady && question.isNotBlank()) Glass.OnAccent else Glass.TextDim
-                        )
+                        }
                     }
                 }
             }
@@ -359,15 +446,18 @@ private fun PdfAssistantTab(vm: PdfAiViewModel, aiReady: Boolean, modifier: Modi
     }
 }
 
-// ============================================================ 2. Product Photo Copywriter
+// ============================================================ 2. Product Photo Copywriter (Streaming + 768px/75% JPEG)
 
 @Composable
 private fun CopywriterTab(vm: CopywriterViewModel, aiReady: Boolean, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val uri by vm.uri.collectAsState()
     val preview by vm.preview.collectAsState()
+    val payloadSize by vm.payloadSize.collectAsState()
     val language by vm.language.collectAsState()
     val notes by vm.notes.collectAsState()
+    val streamingText by vm.streamingText.collectAsState()
+    val isStreaming by vm.isStreaming.collectAsState()
     val result by vm.result.collectAsState()
     val progress by vm.progress.collectAsState()
     val message by vm.message.collectAsState()
@@ -387,7 +477,7 @@ private fun CopywriterTab(vm: CopywriterViewModel, aiReady: Boolean, modifier: M
         if (uri == null) {
             EmptyPicker(
                 title = "Select a Product Photo",
-                subtitle = "Generate title, 3 short review hooks & ready-to-copy caption",
+                subtitle = "Auto-resized to 768px / 75% JPEG • Streams copy word-by-word",
                 icon = Icons.Rounded.AddPhotoAlternate,
                 onClick = { picker.launch("image/*") }
             )
@@ -403,9 +493,12 @@ private fun CopywriterTab(vm: CopywriterViewModel, aiReady: Boolean, modifier: M
                         BitmapImage(preview, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     }
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("Product Photo Ready", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
-                        Hint("Downscaled locally before sending to Gemini Vision.")
+                        Hint(
+                            if (payloadSize > 0) "Lightweight payload: 768px · 75% JPEG (${FileUtils.formatBytes(payloadSize)})"
+                            else "Compressing preview in memory…"
+                        )
                         GlassButton("Change Photo", primary = false, compact = true, onClick = { picker.launch("image/*") })
                     }
                 }
@@ -421,82 +514,207 @@ private fun CopywriterTab(vm: CopywriterViewModel, aiReady: Boolean, modifier: M
                 value = notes,
                 onValueChange = vm::setNotes,
                 label = "Optional Product Notes",
-                placeholder = "e.g. Matte finish, ceramic, minimalist desk setup",
+                placeholder = "e.g. Matte ceramic, free shipping, minimalist desk setup",
                 minLines = 2,
                 maxLines = 4
             )
         }
 
-        GlassButton(
-            text = "Generate Marketing Copy",
-            icon = Icons.Rounded.AutoAwesome,
-            enabled = uri != null && aiReady,
-            onClick = vm::generate,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (isStreaming) {
+            GlassButton(
+                text = "Stop Streaming",
+                icon = Icons.Rounded.StopCircle,
+                primary = false,
+                onClick = vm::stop,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            GlassButton(
+                text = "Generate Marketing Copy",
+                icon = Icons.Rounded.AutoAwesome,
+                enabled = uri != null && payloadSize > 0 && aiReady,
+                onClick = vm::generate,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-        result?.let { copy ->
-            GlassCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    SectionLabel("Product Title", Modifier.weight(1f))
-                    GlassIconButton(Icons.Rounded.ContentCopy, "Copy title", { copyToClipboard(ctx, "Product Title", copy.title) }, tint = Glass.Cyan)
-                }
-                Text(copy.title, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
-            }
-
-            GlassCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    SectionLabel("3 Short Review Hooks", Modifier.weight(1f))
-                    GlassIconButton(
-                        Icons.Rounded.ContentCopy,
-                        "Copy hooks",
-                        { copyToClipboard(ctx, "Review Hooks", copy.hooks.mapIndexed { i, h -> "${i + 1}. $h" }.joinToString("\n")) },
-                        tint = Glass.Emerald
-                    )
+        if (isStreaming && streamingText.isNotBlank()) {
+            GlassCard(Modifier.fillMaxWidth(), accent = Glass.Cyan) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Glass.Cyan)
+                    Spacer(Modifier.width(8.dp))
+                    SectionLabel("Live Streaming Draft")
                 }
                 Spacer(Modifier.height(6.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    copy.hooks.forEachIndexed { idx, hook ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Glass.CardFillSubtle)
-                                .border(1.dp, Glass.Stroke, RoundedCornerShape(12.dp))
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Text("${idx + 1}.", style = MaterialTheme.typography.labelLarge, color = Glass.Emerald, modifier = Modifier.width(22.dp))
-                            Text(hook, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary, modifier = Modifier.weight(1f))
-                            GlassIconButton(Icons.Rounded.ContentCopy, "Copy hook", { copyToClipboard(ctx, "Hook ${idx + 1}", hook) }, tint = Glass.TextSecondary)
+                Text(streamingText, style = MaterialTheme.typography.bodySmall, color = Glass.TextPrimary)
+            }
+        }
+
+        if (!isStreaming) {
+            result?.let { copy ->
+                if (copy.title.isNotBlank()) {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            SectionLabel("Product Title", Modifier.weight(1f))
+                            GlassIconButton(Icons.Rounded.ContentCopy, "Copy title", { copyToClipboard(ctx, "Product Title", copy.title) }, tint = Glass.Cyan)
+                        }
+                        Text(copy.title, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                    }
+                }
+
+                if (copy.hooks.isNotEmpty()) {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            SectionLabel("Short Video Hooks", Modifier.weight(1f))
+                            GlassIconButton(
+                                Icons.Rounded.ContentCopy,
+                                "Copy hooks",
+                                { copyToClipboard(ctx, "Review Hooks", copy.hooks.mapIndexed { i, h -> "${i + 1}. $h" }.joinToString("\n")) },
+                                tint = Glass.Emerald
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            copy.hooks.forEachIndexed { idx, hook ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Glass.CardFillSubtle)
+                                        .border(1.dp, Glass.Stroke, RoundedCornerShape(12.dp))
+                                        .padding(10.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text("${idx + 1}.", style = MaterialTheme.typography.labelLarge, color = Glass.Emerald, modifier = Modifier.width(22.dp))
+                                    Text(hook, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary, modifier = Modifier.weight(1f))
+                                    GlassIconButton(Icons.Rounded.ContentCopy, "Copy hook", { copyToClipboard(ctx, "Hook ${idx + 1}", hook) }, tint = Glass.TextSecondary)
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            GlassCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    SectionLabel("Social / Marketplace Caption", Modifier.weight(1f))
-                    GlassIconButton(
-                        Icons.Rounded.ContentCopy,
-                        "Copy caption",
-                        { copyToClipboard(ctx, "Caption & Hashtags", copy.captionWithTags) },
-                        tint = Glass.Cyan
-                    )
+                if (copy.caption.isNotBlank() || copy.hashtags.isNotEmpty()) {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            SectionLabel("Caption & Hashtags", Modifier.weight(1f))
+                            GlassIconButton(
+                                Icons.Rounded.ContentCopy,
+                                "Copy caption",
+                                { copyToClipboard(ctx, "Caption & Hashtags", copy.captionWithTags) },
+                                tint = Glass.Cyan
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(copy.caption, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
+                        if (copy.hashtagLine.isNotBlank()) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(copy.hashtagLine, style = MaterialTheme.typography.bodySmall, color = Glass.Cyan)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        GlassButton(
+                            text = "Copy All Copywriting",
+                            icon = Icons.Rounded.ContentCopy,
+                            primary = false,
+                            compact = true,
+                            onClick = { copyToClipboard(ctx, "Full Product Copy", copy.asPlainText()) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+// ============================================================ 3. AI History Vault (Room Database)
+
+@Composable
+private fun AiVaultTab(vm: AiVaultViewModel, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val entries by vm.entries.collectAsState()
+    var filter by rememberSaveable { mutableStateOf(VaultFilter.ALL) }
+    var expandedId by remember { mutableStateOf<Long?>(null) }
+
+    val visible = remember(entries, filter) {
+        when (filter) {
+            VaultFilter.ALL -> entries
+            VaultFilter.PDF -> entries.filter { it.kind == AiHistoryKind.PDF_SUMMARY }
+            VaultFilter.COPY -> entries.filter { it.kind == AiHistoryKind.COPYWRITING }
+        }
+    }
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ChoiceRow(VaultFilter.entries, filter, { it.label }, { filter = it }, modifier = Modifier.weight(1f))
+            if (entries.isNotEmpty()) {
+                Spacer(Modifier.width(8.dp))
+                GlassIconButton(Icons.Rounded.DeleteSweep, "Clear AI Vault", vm::clearAll, tint = Glass.Danger)
+            }
+        }
+
+        if (visible.isEmpty()) {
+            GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(22.dp)) {
+                Text("AI History Vault is empty", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                 Spacer(Modifier.height(4.dp))
-                Text(copy.caption, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
-                Spacer(Modifier.height(10.dp))
-                Text(copy.hashtagLine, style = MaterialTheme.typography.bodySmall, color = Glass.Cyan)
-                Spacer(Modifier.height(12.dp))
-                GlassButton(
-                    text = "Copy All Copywriting",
-                    icon = Icons.Rounded.ContentCopy,
-                    primary = false,
-                    compact = true,
-                    onClick = { copyToClipboard(ctx, "Full Product Copy", copy.asPlainText()) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Hint("PDF summaries, translations, Q&A replies, and product copywriting generated by Gemini are automatically saved here offline.")
+            }
+        } else {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 112.dp)
+            ) {
+                items(visible, key = { it.id }) { item ->
+                    val isPdf = item.kind == AiHistoryKind.PDF_SUMMARY
+                    val expanded = expandedId == item.id
+                    GlassCard(
+                        Modifier.fillMaxWidth(),
+                        onClick = { expandedId = if (expanded) null else item.id },
+                        contentPadding = PaddingValues(14.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background((if (isPdf) Glass.Cyan else Glass.Emerald).copy(alpha = 0.14f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    if (isPdf) "PDF AI" else "COPY",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isPdf) Glass.Cyan else Glass.Emerald
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(item.title, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${item.subtitle} • ${FileUtils.formatDate(item.createdAt)}", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            GlassIconButton(Icons.Rounded.ContentCopy, "Copy", { copyToClipboard(ctx, item.title, item.content) }, tint = Glass.Cyan)
+                            GlassIconButton(Icons.Rounded.Delete, "Delete", { vm.delete(item.id) }, tint = Glass.Danger)
+                            Icon(
+                                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                null,
+                                tint = Glass.TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            item.content,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Glass.TextSecondary,
+                            maxLines = if (expanded) Int.MAX_VALUE else 4,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
     }

@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,7 +84,7 @@ import com.mediaforge.studio.vm.CollageViewModel
 import com.mediaforge.studio.vm.CompressorViewModel
 import com.mediaforge.studio.vm.MockupViewModel
 
-private enum class MediaTool(val label: String, val icon: ImageVector) {
+enum class MediaTool(val label: String, val icon: ImageVector) {
     COMPRESS("Compressor", Icons.Rounded.Compress),
     MOCKUP("Mockup", Icons.Rounded.FilterFrames),
     COLLAGE("Collage", Icons.Rounded.AutoAwesomeMosaic)
@@ -93,9 +94,18 @@ private enum class MediaTool(val label: String, val icon: ImageVector) {
 fun MediaLabScreen(
     compressorVm: CompressorViewModel = viewModel(),
     mockupVm: MockupViewModel = viewModel(),
-    collageVm: CollageViewModel = viewModel()
+    collageVm: CollageViewModel = viewModel(),
+    requestedTool: MediaTool? = null,
+    onToolHandled: () -> Unit = {}
 ) {
     var active by rememberSaveable { mutableStateOf(MediaTool.COMPRESS) }
+
+    LaunchedEffect(requestedTool) {
+        if (requestedTool != null) {
+            active = requestedTool
+            onToolHandled()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -107,8 +117,8 @@ fun MediaLabScreen(
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Media Lab", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
-                    Text("Offline Image Compressor, Mockup & Collage", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
+                    Text("NexaKit · Media Lab", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
+                    Text("Offline Compressor, Mockup Framer & Collage", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
                 }
                 Row(
                     Modifier
@@ -505,7 +515,7 @@ private fun MockupTab(vm: MockupViewModel, modifier: Modifier = Modifier) {
                 value = params.watermark,
                 onValueChange = { txt -> vm.update { it.copy(watermark = txt.take(40)) } },
                 label = "Optional Watermark Text",
-                placeholder = "e.g. @mediaforge.studio",
+                placeholder = "e.g. @nexakit.app",
                 singleLine = true
             )
         }
@@ -545,7 +555,7 @@ private fun CollageTab(vm: CollageViewModel, modifier: Modifier = Modifier) {
         if (photos.size < 2) {
             EmptyPicker(
                 title = "Select 2 to 4 Photos",
-                subtitle = if (photos.size == 1) "1 photo picked — select 2 to 4 images for a collage" else "Exports crisp 2160px PNGs to Pictures/MediaForge",
+                subtitle = if (photos.size == 1) "1 photo picked — select 2 to 4 images for a collage" else "Exports crisp 2160px PNGs to Pictures/NexaKit",
                 icon = Icons.Rounded.AutoAwesomeMosaic,
                 onClick = { picker.launch("image/*") }
             )

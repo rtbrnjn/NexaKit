@@ -131,7 +131,7 @@ class CompressorViewModel(app: Application) : ToolViewModel(app) {
                 val tmp = File(tmpDir, "${System.nanoTime()}.${opts.format.ext}")
                 try {
                     val result = compressor.compress(item.uri, opts, tmp)
-                    val name = "${FileUtils.baseName(item.name)}_forge.${opts.format.ext}"
+                    val name = "${FileUtils.baseName(item.name)}_nexakit.${opts.format.ext}"
                     saved += Storage.saveFile(ctx, OutputKind.IMAGE, null, name, opts.format.mime, "Image Compressor", tmp)
                     before += item.originalBytes
                     after += result.bytes

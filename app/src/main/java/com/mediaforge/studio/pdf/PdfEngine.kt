@@ -417,12 +417,45 @@ object PdfEngine {
 
     // ---------------------------------------------------------------- Text extraction
 
-    /** Extracts selectable text (blank for scanned PDFs). */
-    fun extractText(source: File, maxChars: Int = 150_000): String = open(source, forEdit = false).use { doc ->
-        val stripper = PDFTextStripper()
-        stripper.sortByPosition = true
-        val text = stripper.getText(doc).trim()
-        if (text.length > maxChars) text.take(maxChars) + "\n\n[…truncated]" else text
+    data class ExtractedPdfText(
+        val text: String,
+        val extractedPages: Int,
+        val totalPages: Int,
+        val wasTruncated: Boolean
+    )
+
+    /** Extracts selectable text from selected pages (`"all"` or `"1-5, 8"`), capped at `maxChars`. */
+    fun extractText(
+        source: File,
+        pageRange: String = "all",
+        maxChars: Int = 30_000
+    ): ExtractedPdfText = open(source, forEdit = false).use { doc ->
+        val total = doc.numberOfPages.coerceAtLeast(1)
+        val pages = parseRanges(pageRange.ifBlank { "all" }, total)
+        val stripper = PDFTextStripper().apply { sortByPosition = true }
+        val sb = StringBuilder()
+        var count = 0
+        var truncated = false
+        for (zeroIdx in pages) {
+            stripper.startPage = zeroIdx + 1
+            stripper.endPage = zeroIdx + 1
+            val chunk = stripper.getText(doc).trim()
+            count++
+            if (chunk.isNotEmpty()) {
+                if (pages.size > 1) sb.append("--- Page ").append(zeroIdx + 1).append(" ---\n")
+                sb.append(chunk).append("\n\n")
+            }
+            if (sb.length >= maxChars) {
+                truncated = true
+                break
+            }
+        }
+        val raw = sb.toString().trim()
+        val finalText = if (raw.length > maxChars) {
+            truncated = true
+            raw.take(maxChars) + "\n\n[…truncated at $maxChars chars]"
+        } else raw
+        ExtractedPdfText(finalText, count, total, truncated)
     }
 
     // ---------------------------------------------------------------- helpers

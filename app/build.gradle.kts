@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 val keystoreProps = Properties().apply {
@@ -18,8 +19,8 @@ android {
         applicationId = "com.mediaforge.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     signingConfigs {
@@ -110,6 +111,11 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    val roomVersion = "2.8.4"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 

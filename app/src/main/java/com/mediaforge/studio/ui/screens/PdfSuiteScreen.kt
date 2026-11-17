@@ -58,6 +58,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -117,11 +118,11 @@ import com.mediaforge.studio.vm.WatermarkPdfViewModel
 
 private enum class ToolTone { PRIMARY, SECONDARY, TERTIARY }
 
-private enum class PdfTool(
+enum class PdfTool(
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
-    val tone: ToolTone
+    private val tone: ToolTone
 ) {
     PDF_TO_WORD("PDF to Word", "Extract text to .docx", Icons.Rounded.Description, ToolTone.PRIMARY),
     WORD_TO_PDF("Word to PDF", ".docx, Markdown or text", Icons.AutoMirrored.Rounded.TextSnippet, ToolTone.SECONDARY),
@@ -134,7 +135,10 @@ private enum class PdfTool(
     PAGE_NUMBERS("Page Numbers", "Stamp 1 of N cleanly", Icons.Rounded.FormatListNumbered, ToolTone.SECONDARY),
     WATERMARK("Text Watermark", "Diagonal translucent ink", Icons.Rounded.WaterDrop, ToolTone.TERTIARY),
     PROTECT("Protect PDF", "Encrypt with password", Icons.Rounded.Lock, ToolTone.PRIMARY),
-    UNLOCK("Unlock PDF", "Remove PDF password", Icons.Rounded.LockOpen, ToolTone.TERTIARY)
+    UNLOCK("Unlock PDF", "Remove PDF password", Icons.Rounded.LockOpen, ToolTone.TERTIARY);
+
+    @Composable
+    fun accentColor(): Color = tone.color()
 }
 
 @Composable
@@ -157,9 +161,18 @@ fun PdfSuiteScreen(
     pageNumbersVm: PageNumbersViewModel = viewModel(),
     watermarkVm: WatermarkPdfViewModel = viewModel(),
     protectVm: ProtectPdfViewModel = viewModel(),
-    unlockVm: UnlockPdfViewModel = viewModel()
+    unlockVm: UnlockPdfViewModel = viewModel(),
+    requestedTool: PdfTool? = null,
+    onToolHandled: () -> Unit = {}
 ) {
     var activeTool by rememberSaveable { mutableStateOf<PdfTool?>(null) }
+
+    LaunchedEffect(requestedTool) {
+        if (requestedTool != null) {
+            activeTool = requestedTool
+            onToolHandled()
+        }
+    }
 
     BackHandler(enabled = activeTool != null) { activeTool = null }
 
@@ -192,8 +205,8 @@ private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("PDF Pocket Suite", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
-                Text("12 Offline PDF24-Style Tools • On-Device Only", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
+                Text("NexaKit · PDF Suite", style = MaterialTheme.typography.headlineMedium, color = Glass.TextPrimary)
+                Text("12 Offline PDF Tools • On-Device Only", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
             }
             Row(
                 Modifier
@@ -212,7 +225,7 @@ private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
         PdfTool.entries.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 pair.forEach { tool ->
-                    val accent = tool.tone.color()
+                    val accent = tool.accentColor()
                     GlassCard(
                         modifier = Modifier.weight(1f),
                         onClick = { onSelect(tool) },
@@ -311,7 +324,7 @@ private fun PdfToDocxScreen(vm: PdfToDocxViewModel, onBack: () -> Unit) {
         if (src == null) {
             EmptyPicker(
                 title = "Choose a PDF File",
-                subtitle = "Saves editable .docx into Documents/MediaForge",
+                subtitle = "Saves editable .docx into Documents/NexaKit",
                 icon = Icons.Rounded.Description,
                 onClick = { picker.launch(arrayOf("application/pdf")) }
             )
@@ -452,7 +465,7 @@ private fun ImagesToPdfScreen(vm: ImagesToPdfViewModel, onBack: () -> Unit) {
 
     ToolPage(
         title = "Images to PDF",
-        subtitle = "Saves to Documents/MediaForge",
+        subtitle = "Saves to Documents/NexaKit",
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
@@ -525,7 +538,7 @@ private fun PdfToImagesScreen(vm: PdfToImagesViewModel, onBack: () -> Unit) {
 
     ToolPage(
         title = "PDF to Images",
-        subtitle = "Exports pages to Pictures/MediaForge/PDF_Export",
+        subtitle = "Exports pages to Pictures/NexaKit/PDF_Export",
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,

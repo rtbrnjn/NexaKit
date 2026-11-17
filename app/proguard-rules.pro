@@ -15,3 +15,8 @@
 # EncryptedSharedPreferences / Tink
 -dontwarn com.google.crypto.tink.**
 -keep class com.google.crypto.tink.** { *; }
+
+# Room Database & Entities
+-keep class com.mediaforge.studio.data.db.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
