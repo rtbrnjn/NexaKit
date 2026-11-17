@@ -21,8 +21,16 @@
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**
 
-# ML Kit Text Recognition
+# ML Kit Text Recognition & Firebase Components (R8 Full Mode strips <init>() without member rules)
 -dontwarn com.google.mlkit.**
 -dontwarn javax.annotation.**
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    <init>();
+    *** getComponents();
+}
+-keep class * implements com.google.android.datatransport.runtime.backends.BackendFactory { *; }
+-keep class com.google.mlkit.common.** { *; }
+-keep class com.google.mlkit.vision.common.** { *; }
 -keep class com.google.mlkit.vision.text.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text_bundled_common.** { *; }
