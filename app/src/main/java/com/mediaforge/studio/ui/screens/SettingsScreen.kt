@@ -25,13 +25,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AutoDelete
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LightMode
@@ -43,6 +46,8 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +74,7 @@ import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.core.OutputKind
 import com.mediaforge.studio.core.Permissions
 import com.mediaforge.studio.core.Storage
+import com.mediaforge.studio.data.RECOMMENDED_MODELS
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.pdf.PdfPageMode
 import com.mediaforge.studio.ui.components.ChoiceRow
@@ -95,7 +101,6 @@ fun SettingsScreen(vm: SettingsViewModel) {
     val connection by vm.connection.collectAsState()
     val status by vm.status.collectAsState()
     val model by vm.model.collectAsState()
-    val models by vm.models.collectAsState()
     val autoShow by vm.autoShow.collectAsState()
     val defaultQuality by vm.defaultQuality.collectAsState()
     val defaultPdfMode by vm.defaultPdfPageMode.collectAsState()
@@ -118,7 +123,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
-            .padding(top = 12.dp, bottom = 112.dp),
+            .padding(top = 12.dp, bottom = 114.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -179,7 +184,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
             Hint("Liquid Glass adapts frosted contrast automatically across Light & Dark themes.")
         }
 
-        // ------------------------------------------------------------------ 2. Gemini AI Configuration
+        // ------------------------------------------------------------------ 2. Gemini AI Configuration + Compact Dropdown
         GlassCard(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -253,7 +258,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
                     ) {
                         Icon(Icons.Rounded.CheckCircle, null, tint = Glass.Emerald, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Verified! ${c.modelCount} Gemini models ready.", style = MaterialTheme.typography.bodySmall, color = Glass.Emerald)
+                        Text("Verified! ${c.modelCount} Gemini models available.", style = MaterialTheme.typography.bodySmall, color = Glass.Emerald)
                     }
                 }
                 is ConnectionState.Failed -> {
@@ -277,7 +282,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
             Spacer(Modifier.height(14.dp))
             SectionLabel("Gemini Model")
             Spacer(Modifier.height(8.dp))
-            ChoiceRow(models, model, { it }, vm::setModel)
+            ModelDropdownSelector(selectedModel = model, onSelectModel = vm::setModel)
         }
 
         // ------------------------------------------------------------------ 3. Default Export Preferences
@@ -451,11 +456,112 @@ fun SettingsScreen(vm: SettingsViewModel) {
         GlassCard(Modifier.fillMaxWidth()) {
             SectionLabel("About NexaKit")
             Spacer(Modifier.height(6.dp))
-            Text("NexaKit v1.1.0 (Build 2)", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+            Text("NexaKit v1.2.0 (Build 3)", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
             Spacer(Modifier.height(2.dp))
-            Hint("All-in-one offline Media & PDF suite + real-time Gemini AI Copilot with local Room History Vault & Android Share Target.")
+            Hint("True Liquid Glass UI • Offline Media & 12-Tool PDF Suite • Local ML Kit OCR + Turbo SSE Gemini AI • Room History Vault & Share Target.")
             Spacer(Modifier.height(4.dp))
             Text("Package: com.mediaforge.studio", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
+        }
+    }
+}
+
+@Composable
+private fun ModelDropdownSelector(
+    selectedModel: String,
+    onSelectModel: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var editingCustom by remember { mutableStateOf(false) }
+    var customInput by remember(selectedModel) { mutableStateOf(selectedModel) }
+
+    val activeLabel = RECOMMENDED_MODELS.find { it.id == selectedModel }?.displayLabel
+        ?: "$selectedModel (Custom)"
+
+    Box(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Glass.CardFillSubtle)
+                .border(1.dp, Glass.Stroke, RoundedCornerShape(14.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 14.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(activeLabel, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("SSE streaming • thinkingBudget=0 on Flash models", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
+            }
+            Icon(Icons.Rounded.ExpandMore, "Select model", tint = Glass.Cyan)
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .background(Glass.Surface)
+                .border(1.dp, Glass.Stroke, RoundedCornerShape(12.dp))
+        ) {
+            RECOMMENDED_MODELS.forEach { choice ->
+                val isSelected = choice.id == selectedModel
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            choice.displayLabel,
+                            color = if (isSelected) Glass.Cyan else Glass.TextPrimary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    },
+                    trailingIcon = if (isSelected) {
+                        { Icon(Icons.Rounded.Check, null, tint = Glass.Cyan, modifier = Modifier.size(18.dp)) }
+                    } else null,
+                    onClick = {
+                        expanded = false
+                        editingCustom = false
+                        onSelectModel(choice.id)
+                    }
+                )
+            }
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Custom model ID…",
+                        color = Glass.TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                trailingIcon = {
+                    Icon(Icons.Rounded.Edit, null, tint = Glass.TextSecondary, modifier = Modifier.size(16.dp))
+                },
+                onClick = {
+                    expanded = false
+                    editingCustom = true
+                }
+            )
+        }
+    }
+
+    if (editingCustom) {
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            GlassTextField(
+                value = customInput,
+                onValueChange = { customInput = it },
+                label = "Custom Model ID",
+                placeholder = "e.g. gemini-2.5-flash",
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
+            GlassButton(
+                text = "Set",
+                compact = true,
+                enabled = customInput.isNotBlank(),
+                onClick = {
+                    onSelectModel(customInput.trim())
+                    editingCustom = false
+                }
+            )
         }
     }
 }

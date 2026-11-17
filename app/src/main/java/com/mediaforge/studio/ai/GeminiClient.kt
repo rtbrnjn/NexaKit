@@ -316,7 +316,9 @@ class GeminiClient {
                 JSONObject().put("parts", JSONArray().put(JSONObject().put("text", systemInstruction)))
             )
         }
-        val gen = JSONObject().put("temperature", temperature)
+        val gen = JSONObject()
+            .put("temperature", temperature)
+            .put("maxOutputTokens", 1024)
         if (model.contains("2.5")) {
             val budget = if (model.contains("pro")) 128 else 0
             gen.put("thinkingConfig", JSONObject().put("thinkingBudget", budget))

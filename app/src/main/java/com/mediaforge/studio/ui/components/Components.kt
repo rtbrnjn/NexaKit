@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.util.LruCache
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
@@ -15,6 +16,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -22,9 +24,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +56,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -63,6 +68,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,21 +77,29 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.core.BitmapUtils
 import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.Progress
 import com.mediaforge.studio.vm.UiMessage
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+val LocalHazeState = compositionLocalOf<HazeState?> { null }
 
 // ------------------------------------------------------------------ Calm Canvas Background
 
 @Composable
 fun LiquidBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val bg = Glass.Bg
-    val topTint = Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.045f else 0.055f)
-    val bottomTint = Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.03f else 0.04f)
+    val topTint = Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.055f else 0.06f)
+    val bottomTint = Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.035f else 0.045f)
     Box(
         modifier
             .fillMaxSize()
@@ -108,6 +122,135 @@ fun LiquidBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
             },
         content = content
     )
+}
+
+// ------------------------------------------------------------------ True Liquid Glass Bar & Segmented Tabs
+
+/** Modifier that applies real-time Haze frosted blur (Android 12+), vertical light-reflection border, and ambient shadow. */
+@Composable
+fun Modifier.liquidGlassChrome(
+    shape: Shape = RoundedCornerShape(28.dp),
+    hazeState: HazeState? = LocalHazeState.current,
+    blurRadius: Dp = 22.dp,
+    shadowElevation: Dp = 14.dp
+): Modifier {
+    val isDark = Glass.IsDark
+    val navFill = Glass.NavFill
+    val fallbackBg = Glass.Surface
+    val borderBrush = remember(isDark) {
+        if (isDark) {
+            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f)))
+        } else {
+            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.90f), Color.Black.copy(alpha = 0.08f)))
+        }
+    }
+    val hazeStyle = remember(fallbackBg, navFill, blurRadius) {
+        HazeStyle(
+            backgroundColor = fallbackBg,
+            tint = HazeTint(navFill),
+            blurRadius = blurRadius,
+            noiseFactor = 0.08f
+        )
+    }
+    val base = this
+        .shadow(
+            elevation = if (isDark) shadowElevation else (shadowElevation * 0.7f),
+            shape = shape,
+            ambientColor = Color.Black.copy(alpha = if (isDark) 0.40f else 0.10f),
+            spotColor = Color.Black.copy(alpha = if (isDark) 0.40f else 0.10f)
+        )
+        .clip(shape)
+    val frosted = if (hazeState != null) {
+        base.hazeEffect(state = hazeState, style = hazeStyle)
+    } else {
+        base.background(navFill)
+    }
+    return frosted.border(1.dp, borderBrush, shape)
+}
+
+/** Smooth spring-animated sliding pill segmented bar with optional frosted Haze blur behind it. */
+@Composable
+fun <T> GlassSegmentedBar(
+    items: List<T>,
+    selected: T,
+    label: (T) -> String,
+    icon: (T) -> ImageVector,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = null
+) {
+    val shape = RoundedCornerShape(22.dp)
+    val pillShape = RoundedCornerShape(17.dp)
+    val isDark = Glass.IsDark
+    val selectedIndex = items.indexOf(selected).coerceAtLeast(0)
+
+    val pillFill = Glass.Cyan.copy(alpha = if (isDark) 0.18f else 0.14f)
+    val pillBorder = remember(isDark) {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = if (isDark) 0.28f else 0.75f),
+                Color.White.copy(alpha = 0.06f)
+            )
+        )
+    }
+
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .liquidGlassChrome(shape = shape, hazeState = hazeState, blurRadius = 18.dp, shadowElevation = 8.dp)
+            .padding(4.dp)
+    ) {
+        val tabWidth = maxWidth / items.size
+        val indicatorOffset by animateDpAsState(
+            targetValue = tabWidth * selectedIndex,
+            animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f),
+            label = "segmentSlide"
+        )
+
+        Box(Modifier.fillMaxWidth().height(40.dp)) {
+            Box(
+                Modifier
+                    .offset(x = indicatorOffset)
+                    .width(tabWidth)
+                    .fillMaxHeight()
+                    .clip(pillShape)
+                    .background(pillFill)
+                    .border(1.dp, pillBorder, pillShape)
+            )
+
+            Row(Modifier.fillMaxSize()) {
+                items.forEach { item ->
+                    val isSelected = item == selected
+                    val interaction = remember { MutableInteractionSource() }
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(pillShape)
+                            .clickable(interactionSource = interaction, indication = null) { onSelect(item) }
+                            .padding(horizontal = 6.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            icon(item),
+                            null,
+                            tint = if (isSelected) Glass.Cyan else Glass.TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            label(item),
+                            color = if (isSelected) Glass.TextPrimary else Glass.TextSecondary,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ------------------------------------------------------------------ Frosted Glass Cards & Controls
@@ -472,19 +615,22 @@ fun ToolPage(
     message: UiMessage?,
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
+    topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 114.dp,
+    hazeState: HazeState? = null,
     onBack: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Box(modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 112.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+        val baseScroll = Modifier
+            .fillMaxSize()
+            .let { if (hazeState != null) it.hazeSource(hazeState) else it }
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(top = topPadding, bottom = bottomPadding)
+
+        Column(baseScroll, verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (title != null) {
                 Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (onBack != null) {

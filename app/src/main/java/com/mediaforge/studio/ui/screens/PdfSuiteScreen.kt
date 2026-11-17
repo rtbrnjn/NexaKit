@@ -4,6 +4,12 @@ import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -176,20 +182,30 @@ fun PdfSuiteScreen(
 
     BackHandler(enabled = activeTool != null) { activeTool = null }
 
-    when (activeTool) {
-        null -> PdfHubGrid(onSelect = { activeTool = it })
-        PdfTool.PDF_TO_WORD -> PdfToDocxScreen(pdfToDocxVm, onBack = { activeTool = null })
-        PdfTool.WORD_TO_PDF -> TextToPdfScreen(textToPdfVm, onBack = { activeTool = null })
-        PdfTool.IMAGES_TO_PDF -> ImagesToPdfScreen(imagesToPdfVm, onBack = { activeTool = null })
-        PdfTool.PDF_TO_IMAGES -> PdfToImagesScreen(pdfToImagesVm, onBack = { activeTool = null })
-        PdfTool.MERGE -> MergePdfScreen(mergeVm, onBack = { activeTool = null })
-        PdfTool.SPLIT -> SplitPdfScreen(splitVm, onBack = { activeTool = null })
-        PdfTool.COMPRESS -> CompressPdfScreen(compressVm, onBack = { activeTool = null })
-        PdfTool.ROTATE_DELETE -> EditPdfScreen(editVm, onBack = { activeTool = null })
-        PdfTool.PAGE_NUMBERS -> PageNumbersScreen(pageNumbersVm, onBack = { activeTool = null })
-        PdfTool.WATERMARK -> WatermarkPdfScreen(watermarkVm, onBack = { activeTool = null })
-        PdfTool.PROTECT -> ProtectPdfScreen(protectVm, onBack = { activeTool = null })
-        PdfTool.UNLOCK -> UnlockPdfScreen(unlockVm, onBack = { activeTool = null })
+    AnimatedContent(
+        targetState = activeTool,
+        transitionSpec = {
+            val enteringTool = targetState != null
+            (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { if (enteringTool) it / 14 else -it / 14 })
+                .togetherWith(fadeOut(tween(180)))
+        },
+        label = "pdfToolTransition"
+    ) { tool ->
+        when (tool) {
+            null -> PdfHubGrid(onSelect = { activeTool = it })
+            PdfTool.PDF_TO_WORD -> PdfToDocxScreen(pdfToDocxVm, onBack = { activeTool = null })
+            PdfTool.WORD_TO_PDF -> TextToPdfScreen(textToPdfVm, onBack = { activeTool = null })
+            PdfTool.IMAGES_TO_PDF -> ImagesToPdfScreen(imagesToPdfVm, onBack = { activeTool = null })
+            PdfTool.PDF_TO_IMAGES -> PdfToImagesScreen(pdfToImagesVm, onBack = { activeTool = null })
+            PdfTool.MERGE -> MergePdfScreen(mergeVm, onBack = { activeTool = null })
+            PdfTool.SPLIT -> SplitPdfScreen(splitVm, onBack = { activeTool = null })
+            PdfTool.COMPRESS -> CompressPdfScreen(compressVm, onBack = { activeTool = null })
+            PdfTool.ROTATE_DELETE -> EditPdfScreen(editVm, onBack = { activeTool = null })
+            PdfTool.PAGE_NUMBERS -> PageNumbersScreen(pageNumbersVm, onBack = { activeTool = null })
+            PdfTool.WATERMARK -> WatermarkPdfScreen(watermarkVm, onBack = { activeTool = null })
+            PdfTool.PROTECT -> ProtectPdfScreen(protectVm, onBack = { activeTool = null })
+            PdfTool.UNLOCK -> UnlockPdfScreen(unlockVm, onBack = { activeTool = null })
+        }
     }
 }
 

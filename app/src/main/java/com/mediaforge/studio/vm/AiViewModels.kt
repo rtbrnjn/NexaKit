@@ -19,6 +19,7 @@ import com.mediaforge.studio.data.DEFAULT_MODELS
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.data.db.AiHistoryEntity
 import com.mediaforge.studio.data.db.AiHistoryKind
+import com.mediaforge.studio.pdf.LocalOcrEngine
 import com.mediaforge.studio.pdf.PdfEngine
 import com.mediaforge.studio.pdf.PdfPageMode
 import com.mediaforge.studio.pdf.PdfPageRenderer
@@ -52,6 +53,8 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
     val streamingText: StateFlow<String> = _streamingText
     private val _isStreaming = MutableStateFlow(false)
     val isStreaming: StateFlow<Boolean> = _isStreaming
+    private val _liveStatus = MutableStateFlow<String?>(null)
+    val liveStatus: StateFlow<String?> = _liveStatus
     private val _result = MutableStateFlow<ProductCopy?>(null)
     val result: StateFlow<ProductCopy?> = _result
 
@@ -61,6 +64,7 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
     fun pick(uri: Uri) {
         streamJob?.cancel()
         _isStreaming.value = false
+        _liveStatus.value = "Mengompresi gambar lokal (768px)..."
         _uri.value = uri
         _result.value = null
         _streamingText.value = ""
@@ -71,12 +75,14 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
             // Downscale in memory to max 768px and compress to 75% JPEG before Base64 encoding.
             val bmp = BitmapUtils.decode(ctx, uri, 768)
             if (bmp == null) {
+                _liveStatus.value = null
                 showError("Could not open that image.")
             } else {
                 val jpeg = BitmapUtils.jpegBytes(bmp, 75)
                 compressedJpeg = jpeg
                 _payloadSize.value = jpeg.size.toLong()
                 _preview.value = bmp
+                _liveStatus.value = null
             }
         }
     }
@@ -87,6 +93,7 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
     fun stop() {
         streamJob?.cancel()
         _isStreaming.value = false
+        _liveStatus.value = null
     }
 
     fun generate() {
@@ -99,6 +106,7 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
         _result.value = null
         _streamingText.value = ""
         _isStreaming.value = true
+        _liveStatus.value = "Menghubungkan ke Gemini..."
 
         streamJob = viewModelScope.launch {
             val key = container.settings.apiKey.value
@@ -109,6 +117,7 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
             try {
                 container.gemini.streamProductCopy(key, model, jpeg, lang, sellerNotes)
                     .collect { delta ->
+                        if (acc.isEmpty()) _liveStatus.value = "Streaming respons..."
                         acc.append(delta)
                         val text = acc.toString()
                         _streamingText.value = text
@@ -137,12 +146,13 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
                 showError(e.message ?: e.javaClass.simpleName)
             } finally {
                 _isStreaming.value = false
+                _liveStatus.value = null
             }
         }
     }
 }
 
-// ============================================================ 2. PDF Summariser & Chat (Streaming + Smart Range/Limit)
+// ============================================================ 2. PDF Summariser & Chat (Local OCR First + SSE Streaming)
 
 enum class ExtractDepth(val label: String, val maxChars: Int) {
     FAST("Fast · 12K", 12_000),
@@ -154,7 +164,8 @@ data class ChatMessage(
     val fromUser: Boolean,
     val text: String,
     val label: String? = null,
-    val isStreaming: Boolean = false
+    val isStreaming: Boolean = false,
+    val streamPhase: String? = null
 )
 
 class PdfAiViewModel(app: Application) : ToolViewModel(app) {
@@ -164,8 +175,12 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     val pageRange: StateFlow<String> = _pageRange
     private val _depth = MutableStateFlow(ExtractDepth.STANDARD)
     val depth: StateFlow<ExtractDepth> = _depth
+    private val _visionMode = MutableStateFlow(false)
+    val visionMode: StateFlow<Boolean> = _visionMode
     private val _extractInfo = MutableStateFlow("")
     val extractInfo: StateFlow<String> = _extractInfo
+    private val _isScannedPdf = MutableStateFlow(false)
+    val isScannedPdf: StateFlow<Boolean> = _isScannedPdf
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
     private val _isStreaming = MutableStateFlow(false)
@@ -179,14 +194,14 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     fun pick(uri: Uri) {
         streamJob?.cancel()
         _isStreaming.value = false
-        runTask("Indexing PDF pages…") {
+        runTask("Mengekstrak teks lokal...") {
             val src = PdfInputs.load(getApplication(), uri)
             val initialRange = if (src.pageCount <= 10) "all" else "1-10"
             _pageRange.value = initialRange
             _source.value = src
             history.clear()
             _messages.value = emptyList()
-            extractNow(src, initialRange, _depth.value)
+            extractNow(src, initialRange, _depth.value, _visionMode.value)
         }
     }
 
@@ -195,40 +210,83 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     fun setDepth(d: ExtractDepth) {
         _depth.value = d
         val src = _source.value ?: return
-        runTask("Updating extracted text…") {
-            extractNow(src, _pageRange.value, d)
+        runTask("Mengekstrak teks lokal...") {
+            extractNow(src, _pageRange.value, d, _visionMode.value)
+        }
+    }
+
+    fun setVisionMode(enabled: Boolean) {
+        _visionMode.value = enabled
+        val src = _source.value ?: return
+        runTask(if (enabled) "Menyiapkan halaman Vision Mode..." else "Menjalankan OCR lokal...") {
+            extractNow(src, _pageRange.value, _depth.value, enabled)
         }
     }
 
     fun applyRange() {
         val src = _source.value ?: return
-        runTask("Extracting selected pages…") {
-            extractNow(src, _pageRange.value, _depth.value)
+        runTask("Mengekstrak teks lokal...") {
+            extractNow(src, _pageRange.value, _depth.value, _visionMode.value)
         }
     }
 
-    private fun extractNow(src: PdfSource, rangeSpec: String, depth: ExtractDepth) {
+    private suspend fun extractNow(
+        src: PdfSource,
+        rangeSpec: String,
+        depth: ExtractDepth,
+        useVision: Boolean
+    ) {
         val effectiveRange = rangeSpec.ifBlank { "all" }
-        val extracted = PdfEngine.extractText(src.file, effectiveRange, depth.maxChars)
-        if (extracted.text.isBlank()) {
-            setProgress("Scanned PDF – preparing page previews…")
-            val pagesToRender = PdfEngine.parseRanges(effectiveRange, src.pageCount).take(4)
-            val images = ArrayList<ByteArray>(pagesToRender.size)
-            PdfPageRenderer(src.file).use { r ->
-                pagesToRender.forEach { pageIdx ->
-                    val bmp = r.renderToWidth(pageIdx, 960)
-                    images += BitmapUtils.jpegBytes(bmp, 75)
-                    bmp.recycle()
+        setProgress("Mengekstrak teks lokal...")
+        val extracted = withContext(Dispatchers.IO) {
+            PdfEngine.extractText(src.file, effectiveRange, depth.maxChars)
+        }
+        if (extracted.text.isNotBlank()) {
+            _isScannedPdf.value = false
+            docText = extracted.text
+            pageImages = emptyList()
+            val truncNote = if (extracted.wasTruncated) " (batas ${depth.maxChars / 1000}K)" else ""
+            _extractInfo.value = "${extracted.text.length} karakter lokal • ${extracted.extractedPages}/${extracted.totalPages} hal$truncNote"
+            return
+        }
+
+        // Scanned PDF (no text layer): run Local ML Kit OCR first unless Vision Mode is explicitly enabled.
+        _isScannedPdf.value = true
+        val pages = PdfEngine.parseRanges(effectiveRange, src.pageCount)
+        if (!useVision) {
+            val ocr = LocalOcrEngine.ocrPages(src.file, pages, depth.maxChars) { cur, tot ->
+                setProgress("OCR lokal halaman $cur/$tot...", cur.toFloat() / tot)
+            }
+            if (ocr.text.isNotBlank()) {
+                docText = ocr.text
+                pageImages = emptyList()
+                val truncNote = if (ocr.wasTruncated) " (batas ${depth.maxChars / 1000}K)" else ""
+                _extractInfo.value = "OCR lokal: ${ocr.text.length} karakter • ${ocr.pagesProcessed} hal$truncNote"
+            } else {
+                docText = null
+                pageImages = emptyList()
+                _extractInfo.value = "Scanned PDF tanpa teks terbaca — aktifkan Vision Mode jika perlu membaca gambar."
+            }
+        } else {
+            val pagesToRender = pages.take(4)
+            setProgress("Vision Mode: merender ${pagesToRender.size} halaman...")
+            val images = withContext(Dispatchers.Default) {
+                ArrayList<ByteArray>(pagesToRender.size).apply {
+                    PdfPageRenderer(src.file).use { r ->
+                        pagesToRender.forEach { pageIdx ->
+                            val bmp = r.renderToWidth(pageIdx, 960)
+                            try {
+                                add(BitmapUtils.jpegBytes(bmp, 75))
+                            } finally {
+                                bmp.recycle()
+                            }
+                        }
+                    }
                 }
             }
             docText = null
             pageImages = images
-            _extractInfo.value = "Scanned PDF • ${images.size} page image(s) prepared (${effectiveRange})."
-        } else {
-            docText = extracted.text
-            pageImages = emptyList()
-            val truncNote = if (extracted.wasTruncated) " (capped at ${depth.maxChars / 1000}K)" else ""
-            _extractInfo.value = "${extracted.text.length} chars from ${extracted.extractedPages}/${extracted.totalPages} page(s)$truncNote."
+            _extractInfo.value = "Vision Mode aktif: ${images.size} gambar halaman siap dikirim."
         }
     }
 
@@ -240,7 +298,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
         _isStreaming.value = false
         _messages.update { list ->
             if (list.isNotEmpty() && !list.last().fromUser && list.last().isStreaming) {
-                list.dropLast(1) + list.last().copy(isStreaming = false)
+                list.dropLast(1) + list.last().copy(isStreaming = false, streamPhase = null)
             } else list
         }
     }
@@ -254,6 +312,10 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
 
     private fun send(prompt: String, label: String?) {
         val src = _source.value ?: run { showError("Open a PDF first."); return }
+        if (docText.isNullOrBlank() && pageImages.isEmpty()) {
+            showError("Tidak ada teks yang berhasil diekstrak. Aktifkan Vision Mode untuk membaca gambar.")
+            return
+        }
         if (!container.connectivity.online.value) {
             showError("Offline Mode active – connect to the internet to query Gemini AI.")
             return
@@ -265,7 +327,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
 
         _messages.update {
             it + ChatMessage(fromUser = true, text = display, label = label) +
-                ChatMessage(fromUser = false, text = "", isStreaming = true)
+                ChatMessage(fromUser = false, text = "", isStreaming = true, streamPhase = "Menghubungkan ke Gemini...")
         }
         _isStreaming.value = true
 
@@ -280,7 +342,11 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
                         val partial = acc.toString()
                         _messages.update { list ->
                             if (list.isEmpty()) list
-                            else list.dropLast(1) + list.last().copy(text = partial, isStreaming = true)
+                            else list.dropLast(1) + list.last().copy(
+                                text = partial,
+                                isStreaming = true,
+                                streamPhase = "Streaming respons..."
+                            )
                         }
                     }
                 val finalReply = acc.toString().trim()
@@ -288,7 +354,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
                 history += GeminiContent.model(finalReply)
                 _messages.update { list ->
                     if (list.isEmpty()) list
-                    else list.dropLast(1) + list.last().copy(text = finalReply, isStreaming = false)
+                    else list.dropLast(1) + list.last().copy(text = finalReply, isStreaming = false, streamPhase = null)
                 }
                 if (finalReply.isNotBlank()) {
                     withContext(Dispatchers.IO) {

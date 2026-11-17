@@ -2,6 +2,12 @@ package com.mediaforge.studio.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +49,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,8 +60,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mediaforge.studio.core.FileUtils
@@ -72,6 +82,7 @@ import com.mediaforge.studio.ui.components.EmptyPicker
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassIconButton
+import com.mediaforge.studio.ui.components.GlassSegmentedBar
 import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
@@ -83,6 +94,8 @@ import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.CollageViewModel
 import com.mediaforge.studio.vm.CompressorViewModel
 import com.mediaforge.studio.vm.MockupViewModel
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.rememberHazeState
 
 enum class MediaTool(val label: String, val icon: ImageVector) {
     COMPRESS("Compressor", Icons.Rounded.Compress),
@@ -99,6 +112,9 @@ fun MediaLabScreen(
     onToolHandled: () -> Unit = {}
 ) {
     var active by rememberSaveable { mutableStateOf(MediaTool.COMPRESS) }
+    val headerHaze = rememberHazeState()
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 8.dp
 
     LaunchedEffect(requestedTool) {
         if (requestedTool != null) {
@@ -107,12 +123,31 @@ fun MediaLabScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = active,
+            transitionSpec = {
+                val forward = targetState.ordinal >= initialState.ordinal
+                (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { if (forward) it / 16 else -it / 16 })
+                    .togetherWith(fadeOut(tween(180)))
+            },
+            label = "mediaSubTab",
+            modifier = Modifier.fillMaxSize()
+        ) { tool ->
+            when (tool) {
+                MediaTool.COMPRESS -> CompressorTab(compressorVm, topPadding, headerHaze)
+                MediaTool.MOCKUP -> MockupTab(mockupVm, topPadding, headerHaze)
+                MediaTool.COLLAGE -> CollageTab(collageVm, topPadding, headerHaze)
+            }
+        }
+
         Column(
             Modifier
+                .align(Alignment.TopCenter)
                 .fillMaxWidth()
+                .onSizeChanged { headerHeightPx = it.height }
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 6.dp),
+                .padding(top = 12.dp, bottom = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -134,55 +169,14 @@ fun MediaLabScreen(
                 }
             }
 
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Glass.CardFillSubtle)
-                    .border(1.dp, Glass.Stroke, RoundedCornerShape(18.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                MediaTool.entries.forEach { tool ->
-                    val selected = tool == active
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .then(
-                                if (selected) Modifier
-                                    .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.18f else 0.14f))
-                                    .border(1.dp, Glass.Cyan.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                                else Modifier
-                            )
-                            .clickable { active = tool }
-                            .padding(vertical = 9.dp, horizontal = 6.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            tool.icon,
-                            null,
-                            tint = if (selected) Glass.Cyan else Glass.TextSecondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            tool.label,
-                            color = if (selected) Glass.TextPrimary else Glass.TextSecondary,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-        }
-
-        when (active) {
-            MediaTool.COMPRESS -> CompressorTab(compressorVm, Modifier.weight(1f))
-            MediaTool.MOCKUP -> MockupTab(mockupVm, Modifier.weight(1f))
-            MediaTool.COLLAGE -> CollageTab(collageVm, Modifier.weight(1f))
+            GlassSegmentedBar(
+                items = MediaTool.entries,
+                selected = active,
+                label = { it.label },
+                icon = { it.icon },
+                onSelect = { active = it },
+                hazeState = headerHaze
+            )
         }
     }
 }
@@ -190,7 +184,7 @@ fun MediaLabScreen(
 // ============================================================ 1. Batch Compressor + EXIF Stripper
 
 @Composable
-private fun CompressorTab(vm: CompressorViewModel, modifier: Modifier = Modifier) {
+private fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: HazeState) {
     val items by vm.items.collectAsState()
     val opts by vm.options.collectAsState()
     val estimating by vm.estimating.collectAsState()
@@ -207,7 +201,8 @@ private fun CompressorTab(vm: CompressorViewModel, modifier: Modifier = Modifier
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
-        modifier = modifier
+        topPadding = topPadding,
+        hazeState = hazeState
     ) {
         if (items.isEmpty()) {
             EmptyPicker(
@@ -358,7 +353,7 @@ private fun CompressorTab(vm: CompressorViewModel, modifier: Modifier = Modifier
 // ============================================================ 2. Minimalist Product Mockup Framer
 
 @Composable
-private fun MockupTab(vm: MockupViewModel, modifier: Modifier = Modifier) {
+private fun MockupTab(vm: MockupViewModel, topPadding: Dp, hazeState: HazeState) {
     val uri by vm.uri.collectAsState()
     val params by vm.params.collectAsState()
     val preview by vm.preview.collectAsState()
@@ -375,7 +370,8 @@ private fun MockupTab(vm: MockupViewModel, modifier: Modifier = Modifier) {
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
-        modifier = modifier
+        topPadding = topPadding,
+        hazeState = hazeState
     ) {
         if (uri == null) {
             EmptyPicker(
@@ -533,7 +529,7 @@ private fun MockupTab(vm: MockupViewModel, modifier: Modifier = Modifier) {
 // ============================================================ 3. Clean Grid Collage Maker
 
 @Composable
-private fun CollageTab(vm: CollageViewModel, modifier: Modifier = Modifier) {
+private fun CollageTab(vm: CollageViewModel, topPadding: Dp, hazeState: HazeState) {
     val photos by vm.photos.collectAsState()
     val params by vm.params.collectAsState()
     val preview by vm.preview.collectAsState()
@@ -550,7 +546,8 @@ private fun CollageTab(vm: CollageViewModel, modifier: Modifier = Modifier) {
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
-        modifier = modifier
+        topPadding = topPadding,
+        hazeState = hazeState
     ) {
         if (photos.size < 2) {
             EmptyPicker(

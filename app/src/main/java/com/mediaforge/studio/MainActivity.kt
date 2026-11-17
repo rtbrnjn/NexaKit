@@ -10,25 +10,31 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -39,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -50,9 +57,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +73,8 @@ import androidx.navigation.compose.rememberNavController
 import com.mediaforge.studio.core.Permissions
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.ui.components.LiquidBackground
+import com.mediaforge.studio.ui.components.LocalHazeState
+import com.mediaforge.studio.ui.components.liquidGlassChrome
 import com.mediaforge.studio.ui.screens.AiTool
 import com.mediaforge.studio.ui.screens.GeminiAiScreen
 import com.mediaforge.studio.ui.screens.MediaLabScreen
@@ -98,6 +106,8 @@ import com.mediaforge.studio.vm.SplitPdfViewModel
 import com.mediaforge.studio.vm.TextToPdfViewModel
 import com.mediaforge.studio.vm.UnlockPdfViewModel
 import com.mediaforge.studio.vm.WatermarkPdfViewModel
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -167,6 +177,7 @@ private fun MediaForgeRoot() {
     val container = app.container
     val scope = rememberCoroutineScope()
 
+    val rootHazeState = rememberHazeState()
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: TopTab.MEDIA_LAB.route
@@ -281,78 +292,99 @@ private fun MediaForgeRoot() {
         container.consumeShareDispatch()
     }
 
-    LiquidBackground {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-        ) {
-            NavHost(
-                navController = navController,
-                startDestination = TopTab.MEDIA_LAB.route,
-                modifier = Modifier.fillMaxSize()
+    CompositionLocalProvider(LocalHazeState provides rootHazeState) {
+        LiquidBackground {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
             ) {
-                composable(TopTab.MEDIA_LAB.route) {
-                    MediaLabScreen(
-                        compressorVm = compressorVm,
-                        mockupVm = mockupVm,
-                        collageVm = collageVm,
-                        requestedTool = requestedMediaTool,
-                        onToolHandled = { requestedMediaTool = null }
-                    )
+                // Content captured by Haze so floating navbar blurs scrolling content smoothly underneath.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .hazeSource(rootHazeState)
+                ) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = TopTab.MEDIA_LAB.route,
+                        enterTransition = {
+                            fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 18 }
+                        },
+                        exitTransition = {
+                            fadeOut(tween(180))
+                        },
+                        popEnterTransition = {
+                            fadeIn(tween(220)) + slideInHorizontally(tween(220)) { -it / 18 }
+                        },
+                        popExitTransition = {
+                            fadeOut(tween(180))
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        composable(TopTab.MEDIA_LAB.route) {
+                            MediaLabScreen(
+                                compressorVm = compressorVm,
+                                mockupVm = mockupVm,
+                                collageVm = collageVm,
+                                requestedTool = requestedMediaTool,
+                                onToolHandled = { requestedMediaTool = null }
+                            )
+                        }
+                        composable(TopTab.PDF_SUITE.route) {
+                            PdfSuiteScreen(
+                                pdfToDocxVm = pdfToDocxVm,
+                                textToPdfVm = textToPdfVm,
+                                imagesToPdfVm = imagesToPdfVm,
+                                pdfToImagesVm = pdfToImagesVm,
+                                mergeVm = mergeVm,
+                                splitVm = splitVm,
+                                compressVm = compressPdfVm,
+                                editVm = editPdfVm,
+                                pageNumbersVm = pageNumbersVm,
+                                watermarkVm = watermarkVm,
+                                protectVm = protectVm,
+                                unlockVm = unlockVm,
+                                requestedTool = requestedPdfTool,
+                                onToolHandled = { requestedPdfTool = null }
+                            )
+                        }
+                        composable(TopTab.GEMINI_AI.route) {
+                            GeminiAiScreen(
+                                settingsVm = settingsVm,
+                                onOpenVault = { navigateTo(TopTab.SETTINGS) },
+                                copyVm = copyVm,
+                                pdfAiVm = pdfAiVm,
+                                vaultVm = aiVaultVm,
+                                requestedTool = requestedAiTool,
+                                onToolHandled = { requestedAiTool = null }
+                            )
+                        }
+                        composable(TopTab.SETTINGS.route) { SettingsScreen(settingsVm) }
+                    }
                 }
-                composable(TopTab.PDF_SUITE.route) {
-                    PdfSuiteScreen(
-                        pdfToDocxVm = pdfToDocxVm,
-                        textToPdfVm = textToPdfVm,
-                        imagesToPdfVm = imagesToPdfVm,
-                        pdfToImagesVm = pdfToImagesVm,
-                        mergeVm = mergeVm,
-                        splitVm = splitVm,
-                        compressVm = compressPdfVm,
-                        editVm = editPdfVm,
-                        pageNumbersVm = pageNumbersVm,
-                        watermarkVm = watermarkVm,
-                        protectVm = protectVm,
-                        unlockVm = unlockVm,
-                        requestedTool = requestedPdfTool,
-                        onToolHandled = { requestedPdfTool = null }
-                    )
-                }
-                composable(TopTab.GEMINI_AI.route) {
-                    GeminiAiScreen(
-                        settingsVm = settingsVm,
-                        onOpenVault = { navigateTo(TopTab.SETTINGS) },
-                        copyVm = copyVm,
-                        pdfAiVm = pdfAiVm,
-                        vaultVm = aiVaultVm,
-                        requestedTool = requestedAiTool,
-                        onToolHandled = { requestedAiTool = null }
-                    )
-                }
-                composable(TopTab.SETTINGS.route) { SettingsScreen(settingsVm) }
+
+                LiquidGlassBottomBar(
+                    currentRoute = currentRoute,
+                    onSelect = ::navigateTo,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
             }
 
-            LiquidGlassBottomBar(
-                currentRoute = currentRoute,
-                onSelect = ::navigateTo,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ShareIntakeSheet(
+                share = incomingShare,
+                onSelect = container::dispatchShareAction,
+                onDismiss = container::dismissIncomingShare
+            )
+
+            ResultSheet(
+                files = results,
+                onDismiss = container::dismissResults
             )
         }
-
-        ShareIntakeSheet(
-            share = incomingShare,
-            onSelect = container::dispatchShareAction,
-            onDismiss = container::dismissIncomingShare
-        )
-
-        ResultSheet(
-            files = results,
-            onDismiss = container::dismissResults
-        )
     }
 }
 
@@ -362,63 +394,80 @@ private fun LiquidGlassBottomBar(
     onSelect: (TopTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(26.dp)
+    val tabs = TopTab.entries
+    val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     val isDark = Glass.IsDark
-    Row(
+    val pillShape = RoundedCornerShape(22.dp)
+
+    val pillFill = Glass.Cyan.copy(alpha = if (isDark) 0.18f else 0.14f)
+    val pillBorder = remember(isDark) {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = if (isDark) 0.28f else 0.80f),
+                Color.White.copy(alpha = 0.06f)
+            )
+        )
+    }
+
+    BoxWithConstraints(
         modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (isDark) 14.dp else 10.dp,
-                shape = shape,
-                ambientColor = Color.Black.copy(alpha = if (isDark) 0.35f else 0.10f),
-                spotColor = Color.Black.copy(alpha = if (isDark) 0.35f else 0.10f)
+            .liquidGlassChrome(
+                shape = RoundedCornerShape(28.dp),
+                hazeState = LocalHazeState.current,
+                blurRadius = 24.dp,
+                shadowElevation = 16.dp
             )
-            .clip(shape)
-            .background(Glass.NavFill)
-            .border(1.dp, Glass.Stroke, shape)
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(6.dp)
     ) {
-        TopTab.entries.forEach { tab ->
-            val selected = currentRoute == tab.route
-            val scale by animateFloatAsState(
-                targetValue = if (selected) 1.0f else 0.96f,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
-                label = "navScale"
-            )
-            val interaction = remember { MutableInteractionSource() }
+        val tabWidth = maxWidth / tabs.size
+        val indicatorOffset by animateDpAsState(
+            targetValue = tabWidth * selectedIndex,
+            animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f),
+            label = "bottomPillSlide"
+        )
 
-            Column(
+        Box(Modifier.fillMaxWidth().height(52.dp)) {
+            // Animated sliding liquid pill behind tab icons/labels
+            Box(
                 Modifier
-                    .weight(1f)
-                    .graphicsLayer { scaleX = scale; scaleY = scale }
-                    .clip(RoundedCornerShape(20.dp))
-                    .then(
-                        if (selected) Modifier
-                            .background(Glass.Cyan.copy(alpha = if (isDark) 0.16f else 0.12f))
-                            .border(1.dp, Glass.Cyan.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
-                        else Modifier
-                    )
-                    .clickable(interactionSource = interaction, indication = null) { onSelect(tab) }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = tab.icon,
-                    contentDescription = tab.label,
-                    tint = if (selected) Glass.Cyan else Glass.TextSecondary,
-                    modifier = Modifier.size(21.dp)
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = tab.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (selected) Glass.TextPrimary else Glass.TextSecondary,
-                    maxLines = 1
-                )
+                    .offset(x = indicatorOffset)
+                    .width(tabWidth)
+                    .fillMaxHeight()
+                    .clip(pillShape)
+                    .background(pillFill)
+                    .border(1.dp, pillBorder, pillShape)
+            )
+
+            Row(Modifier.fillMaxSize()) {
+                tabs.forEach { tab ->
+                    val selected = tab.route == currentRoute
+                    val interaction = remember { MutableInteractionSource() }
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(pillShape)
+                            .clickable(interactionSource = interaction, indication = null) { onSelect(tab) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.label,
+                            tint = if (selected) Glass.Cyan else Glass.TextSecondary,
+                            modifier = Modifier.size(21.dp)
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = tab.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (selected) Glass.TextPrimary else Glass.TextSecondary,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
         }
     }

@@ -20,3 +20,9 @@
 -keep class com.mediaforge.studio.data.db.** { *; }
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**
+
+# ML Kit Text Recognition
+-dontwarn com.google.mlkit.**
+-dontwarn javax.annotation.**
+-keep class com.google.mlkit.vision.text.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }

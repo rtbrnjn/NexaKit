@@ -25,7 +25,16 @@ import kotlinx.coroutines.withContext
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "mediaforge_settings")
 
 const val DEFAULT_MODEL = "gemini-2.5-flash"
-val DEFAULT_MODELS = listOf("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite", "gemini-2.0-flash")
+
+data class GeminiModelChoice(val id: String, val displayLabel: String)
+
+val RECOMMENDED_MODELS = listOf(
+    GeminiModelChoice("gemini-2.5-flash", "gemini-2.5-flash (Recommended - Fast)"),
+    GeminiModelChoice("gemini-2.5-flash-lite", "gemini-2.5-flash-lite (Ultra Fast)"),
+    GeminiModelChoice("gemini-2.5-pro", "gemini-2.5-pro (Deep Analysis)")
+)
+
+val DEFAULT_MODELS = RECOMMENDED_MODELS.map { it.id }
 
 enum class ThemeMode(val label: String) {
     SYSTEM("System"),

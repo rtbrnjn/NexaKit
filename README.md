@@ -1,29 +1,28 @@
 # NexaKit
 
-**NexaKit** *(formerly MediaForge Studio)* is an all-in-one Android media & document utility suite built with **Kotlin**, **Jetpack Compose (Material 3)**, **Coroutines/Flow**, **Room Database**, **PDFBox-Android**, **Android PdfRenderer/PdfDocument**, and **Google Gemini Streaming REST API**.
+**NexaKit** *(formerly MediaForge Studio)* is an all-in-one Android media & document utility suite built with **Kotlin**, **Jetpack Compose (Material 3)**, **Haze Frosted Glass**, **ML Kit On-Device OCR**, **Room Database**, **PDFBox-Android**, and **Google Gemini Streaming REST API**.
 
-Designed around a calm, Apple-inspired **Liquid Glass** aesthetic with instant **Dark Mode**, **Light Mode**, and **System Default** theming.
+Designed around an Apple-inspired **True Liquid Glass** aesthetic with real-time frosted blur, spring-animated sliding pill indicators, and instant **Dark Mode**, **Light Mode**, and **System Default** theming.
 
 ---
 
-## Download & Install APK (`v1.1.0`)
+## Download & Install APK (`v1.2.0`)
 
-- **Direct Download (`v1.1.0`):** [app-release.apk](https://github.com/rtbrnjn/MediaForge-Studio/releases/download/v1.1.0/app-release.apk)
+- **Direct Download (`v1.2.0`):** [app-release.apk](https://github.com/rtbrnjn/MediaForge-Studio/releases/download/v1.2.0/app-release.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/MediaForge-Studio/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `app-release.apk` dari halaman Releases di atas.
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **v1.0.0 (MediaForge Studio)** dapat langsung menimpa/update tanpa perlu uninstall (menggunakan `applicationId` dan keystore yang sama).
+3. Pengguna **v1.0.0 / v1.1.0** yang memakai rilis signed dari GitHub dapat langsung memperbarui tanpa uninstall (`applicationId` dan keystore sama).
 
 ---
 
-## What's New in v1.1.0
-- **Rebranding ke NexaKit** — Tampilan nama aplikasi, header UI, folder output (`Pictures/NexaKit` & `Documents/NexaKit`), dan bagian About diperbarui ke NexaKit tanpa memutus jalur upgrade dari v1.0.0.
-- **Real-Time Gemini AI SSE Streaming** — Menggunakan endpoint `:streamGenerateContent?alt=sse` dengan Kotlin `Flow` sehingga teks jawaban muncul kata demi kata secara langsung.
-- **Low-Latency `thinkingConfig` & Payload Ringan** — Menggunakan `gemini-2.5-flash` dengan `thinkingBudget: 0` untuk menghilangkan jeda thinking, auto-resize gambar copywriter (`768px`, JPEG `75%`), serta pemilih rentang halaman & batas karakter cerdas untuk PDF.
-- **Android Share Target** — Mendukung `ACTION_SEND` & `ACTION_SEND_MULTIPLE` (`image/*` dan `application/pdf`) langsung dari WhatsApp, Galeri, atau File Manager.
-- **AI History Vault (Room Database)** — Menyimpan hasil ringkasan PDF, terjemahan, tanya-jawab, dan product copywriting secara lokal lengkap dengan filter, tombol Copy, dan Hapus.
+## What's New in v1.2.0
+- **True Liquid Glass Frosted UI** — Menggunakan `dev.chrisbanes.haze` (`haze` + `haze-blur`) pada Bottom Navigation Bar & Top Segmented Tabs untuk blur konten secara real-time (Android 12+), bingkai kaca `28.dp` dengan refleksi gradasi tipis, dan bayangan lembut.
+- **Animated Sliding Liquid Pill & Smooth Transitions** — Indikator tab meluncur mulus dengan spring physics (`dampingRatio = 0.78f`, `stiffness = 380f`), transisi halus `AnimatedContent` & `NavHost`, serta padding bawah aman (`112–114.dp`) di semua halaman gulir.
+- **Turbo Gemini AI & Local ML Kit OCR** — Scanned PDF otomatis diproses secara lokal menggunakan **ML Kit Text Recognition** (0 gambar diunggah kecuali **Vision Mode** diaktifkan), disertai `:streamGenerateContent?alt=sse`, `thinkingBudget: 0`, `maxOutputTokens: 1024`, dan status real-time.
+- **Compact Settings Model Dropdown** — Daftar chip model yang panjang kini diringkas menjadi **Liquid Glass Dropdown Selector** berisi model rekomendasi (`gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro`) serta opsi input custom model.
 
 ---
 
@@ -49,13 +48,10 @@ Designed around a calm, Apple-inspired **Liquid Glass** aesthetic with instant *
 12. **Unlock / Decrypt PDF** — Hapus proteksi kata sandi pada PDF milik pengguna.
 
 ### 3. Gemini AI Copilot & AI History Vault
-- **Smart PDF Assistant** — Ekstraksi halaman selektif & budget karakter cerdas (`12K` / `30K` / `80K`) + streaming Q&A, ringkasan eksekutif, key takeaways, dan terjemahan ID ↔ EN.
-- **Product Photo Copywriter** — Streaming judul produk, 3 hook video pendek, dan caption + hashtag siap salin.
+- **Smart PDF Assistant** — Ekstraksi halaman selektif, **ML Kit Local OCR** untuk scanned PDF + opsi **Vision Mode**, budget karakter (`12K` / `30K` / `80K`), dan streaming SSE real-time.
+- **Product Photo Copywriter** — Auto-kompresi (`768px` / `75%` JPEG) + streaming judul produk, 3 hook video pendek, dan caption + hashtag siap salin.
 - **AI History Vault** — Tersimpan offline di Room Database (`nexakit_ai_vault.db`).
-- **Offline Graceful Mode** — Menampilkan badge status offline saat tanpa koneksi atau API key sambil menjaga Media Lab & PDF Suite 100% aktif.
-
-### 4. Settings & Storage Manager
-- Switcher tema instan (**System**, **Light**, **Dark**), Vault API Key terenkripsi (`EncryptedSharedPreferences`) + tombol **Verify Key**, preferensi default ekspor, penghitung total ruang tersimpan, pembersih cache, dan riwayat ekspor.
+- **Android Share Target** — Kirim gambar/PDF langsung dari WhatsApp, Galeri, atau File Manager ke NexaKit.
 
 ---
 

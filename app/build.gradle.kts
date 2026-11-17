@@ -19,8 +19,8 @@ android {
         applicationId = "com.mediaforge.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -106,6 +106,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
+    implementation("dev.chrisbanes.haze:haze:1.7.2")
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
@@ -118,6 +120,7 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     testImplementation("junit:junit:4.13.2")
 }
