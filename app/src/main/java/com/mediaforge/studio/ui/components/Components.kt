@@ -804,18 +804,22 @@ fun OfflineBadge(modifier: Modifier = Modifier, compact: Boolean = false) {
 }
 
 @Composable
-fun OnlineBadge(modifier: Modifier = Modifier) {
+fun OnlineBadge(
+    modifier: Modifier = Modifier,
+    label: String = "Gemini Online",
+    accent: Color = Glass.Emerald
+) {
     Row(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f))
-            .border(1.dp, Glass.Emerald.copy(alpha = 0.42f), RoundedCornerShape(50))
+            .background(accent.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f))
+            .border(1.dp, accent.copy(alpha = 0.42f), RoundedCornerShape(50))
             .padding(horizontal = 11.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(Glass.Emerald))
+        Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
         Spacer(Modifier.width(6.dp))
-        Text("Gemini Online", color = Glass.Emerald, style = MaterialTheme.typography.labelSmall)
+        Text(label, color = accent, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
 
@@ -889,7 +893,7 @@ fun ToolPage(
     onDismissMessage: () -> Unit,
     modifier: Modifier = Modifier,
     topPadding: Dp = 0.dp,
-    bottomPadding: Dp = 118.dp,
+    bottomPadding: Dp = 120.dp,
     hazeState: HazeState? = LocalHazeState.current,
     onBack: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,

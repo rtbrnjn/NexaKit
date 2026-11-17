@@ -226,7 +226,7 @@ private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
                 .let { if (chromeHaze != null) it.hazeSource(chromeHaze, zIndex = 1f) else it }
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = 118.dp),
+                .padding(top = topPadding, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             PdfTool.entries.chunked(2).forEach { pair ->

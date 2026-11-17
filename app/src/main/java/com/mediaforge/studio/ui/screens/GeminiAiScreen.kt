@@ -76,6 +76,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mediaforge.studio.ai.AiEngine
+import com.mediaforge.studio.ai.AiPreference
+import com.mediaforge.studio.ai.AiRouting
 import com.mediaforge.studio.ai.CopyLanguage
 import com.mediaforge.studio.ai.DocTask
 import com.mediaforge.studio.core.FileUtils
@@ -137,8 +140,12 @@ fun GeminiAiScreen(
     onToolHandled: () -> Unit = {}
 ) {
     val online by settingsVm.online.collectAsState()
-    val apiKey by settingsVm.savedKey.collectAsState()
+    val geminiKey by settingsVm.savedKey.collectAsState()
+    val groqKey by settingsVm.savedGroqKey.collectAsState()
     val model by settingsVm.model.collectAsState()
+    val aiPref by settingsVm.aiPreference.collectAsState()
+    val activePdfEngine by pdfAiVm.activeEngine.collectAsState()
+    val activeCopyEngine by copyVm.activeEngine.collectAsState()
     var active by rememberSaveable { mutableStateOf(AiTool.PDF_CHAT) }
 
     val chromeHaze = LocalHazeState.current
@@ -152,7 +159,19 @@ fun GeminiAiScreen(
         }
     }
 
-    val aiReady = online && apiKey.isNotBlank()
+    val hasAnyKey = groqKey.isNotBlank() || geminiKey.isNotBlank()
+    val aiReady = online && hasAnyKey
+    val primaryEngine = AiRouting.resolvePrimaryEngine(aiPref, groqKey.isNotBlank(), geminiKey.isNotBlank())
+    val displayedEngine = when (active) {
+        AiTool.PDF_CHAT -> activePdfEngine ?: primaryEngine
+        AiTool.COPYWRITER -> activeCopyEngine ?: primaryEngine
+        AiTool.VAULT -> primaryEngine
+    }
+    val engineBadge = if (!online || !hasAnyKey) {
+        "Offline Mode"
+    } else {
+        AiRouting.badgeLabel(displayedEngine, model, isVision = active == AiTool.COPYWRITER)
+    }
 
     Box(Modifier.fillMaxSize()) {
         AnimatedContent(
@@ -181,35 +200,65 @@ fun GeminiAiScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             LiquidGlassTopHeader(
-                title = "NexaKit · Gemini AI",
-                subtitle = "SSE Streaming • $model",
+                title = "NexaKit · AI Studio",
+                subtitle = if (!aiReady) "Add Groq or Gemini API key in Settings"
+                else if (groqKey.isNotBlank() && geminiKey.isNotBlank()) "$engineBadge • Auto-Fallback"
+                else "$engineBadge • SSE Streaming",
                 hazeState = chromeHaze,
                 trailing = {
-                    if (online && apiKey.isNotBlank()) OnlineBadge() else OfflineBadge(compact = true)
+                    if (aiReady) {
+                        OnlineBadge(
+                            label = engineBadge,
+                            accent = if (displayedEngine == AiEngine.GROQ) Glass.Emerald else Glass.Cyan
+                        )
+                    } else {
+                        OfflineBadge(compact = true)
+                    }
                 }
             )
 
             if (!online) {
                 GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
                     Text(
-                        "Offline Mode — All Media & PDF Tools Ready. Connect to the internet for live Gemini AI streaming.",
+                        "Offline Mode — All Media & PDF Tools Ready. Connect to the internet for live Groq & Gemini streaming.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Glass.TextPrimary
                     )
                 }
-            } else if (apiKey.isBlank()) {
+            } else if (!hasAnyKey) {
                 GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Key, null, tint = Glass.Amber, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Add your Gemini API key in Settings to enable Gemini $model.",
+                            "Add a Groq (gsk_...) or Gemini (AIza...) key in Settings to enable AI Studio.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Glass.TextPrimary,
                             modifier = Modifier.weight(1f)
                         )
                         Spacer(Modifier.width(8.dp))
                         GlassButton("Settings", primary = false, compact = true, onClick = onOpenVault)
+                    }
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Engine", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
+                    AiPreference.entries.forEach { pref ->
+                        val chipColor = when (pref) {
+                            AiPreference.GROQ -> Glass.Emerald
+                            AiPreference.GEMINI -> Glass.Cyan
+                            AiPreference.AUTO -> if (primaryEngine == AiEngine.GROQ) Glass.Emerald else Glass.Cyan
+                        }
+                        GlassChip(
+                            text = if (pref == AiPreference.GROQ) "Groq LPU" else pref.label,
+                            selected = aiPref == pref,
+                            onClick = { settingsVm.setAiPreference(pref) },
+                            color = chipColor
+                        )
                     }
                 }
             }
@@ -266,7 +315,7 @@ private fun PdfAssistantTab(
                 .fillMaxSize()
                 .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = 118.dp),
+                .padding(top = topPadding, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StatusBanner(message, vm::dismissMessage)
@@ -684,7 +733,7 @@ private fun AiVaultTab(
             .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(top = topPadding, bottom = 118.dp)
+        contentPadding = PaddingValues(top = topPadding, bottom = 120.dp)
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

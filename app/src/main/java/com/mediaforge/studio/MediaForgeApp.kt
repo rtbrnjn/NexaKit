@@ -2,7 +2,9 @@ package com.mediaforge.studio
 
 import android.app.Application
 import android.net.Uri
+import com.mediaforge.studio.ai.AiRouter
 import com.mediaforge.studio.ai.GeminiClient
+import com.mediaforge.studio.ai.GroqClient
 import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.data.Connectivity
@@ -54,6 +56,8 @@ class AppContainer(private val app: Application) {
     val history = HistoryStore(app)
     val connectivity = Connectivity(app)
     val gemini = GeminiClient()
+    val groq = GroqClient()
+    val aiRouter = AiRouter(groq, gemini)
     val aiHistory: AiHistoryDao by lazy { NexaDatabase.get(app).aiHistoryDao() }
 
     private val _results = MutableStateFlow<List<SavedFile>?>(null)

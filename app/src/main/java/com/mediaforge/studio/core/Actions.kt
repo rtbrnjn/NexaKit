@@ -64,4 +64,16 @@ object Actions {
             Toast.makeText(ctx, "Open your Files app → $relativePath", Toast.LENGTH_LONG).show()
         }
     }
+
+    /** Opens an external URL (e.g. Groq Console or Google AI Studio) in the default browser. */
+    fun openUrl(ctx: Context, url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            ctx.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(ctx, "No browser found to open $url", Toast.LENGTH_SHORT).show()
+        }
+    }
 }

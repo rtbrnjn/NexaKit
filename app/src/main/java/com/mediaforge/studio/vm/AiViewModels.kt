@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mediaforge.studio.ai.AiEngine
+import com.mediaforge.studio.ai.AiPreference
+import com.mediaforge.studio.ai.AiRouting
 import com.mediaforge.studio.ai.CopyLanguage
 import com.mediaforge.studio.ai.DocTask
 import com.mediaforge.studio.ai.GeminiContent
@@ -55,6 +58,8 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
     val isStreaming: StateFlow<Boolean> = _isStreaming
     private val _liveStatus = MutableStateFlow<String?>(null)
     val liveStatus: StateFlow<String?> = _liveStatus
+    private val _activeEngine = MutableStateFlow<AiEngine?>(null)
+    val activeEngine: StateFlow<AiEngine?> = _activeEngine
     private val _result = MutableStateFlow<ProductCopy?>(null)
     val result: StateFlow<ProductCopy?> = _result
 
@@ -64,6 +69,7 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
     fun pick(uri: Uri) {
         streamJob?.cancel()
         _isStreaming.value = false
+        _activeEngine.value = null
         _liveStatus.value = "Mengompresi gambar lokal (768px)..."
         _uri.value = uri
         _result.value = null
@@ -94,36 +100,47 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
         streamJob?.cancel()
         _isStreaming.value = false
         _liveStatus.value = null
+        _activeEngine.value = null
     }
 
     fun generate() {
         val jpeg = compressedJpeg ?: run { showError("Pick a product photo first."); return }
         if (!container.connectivity.online.value) {
-            showError("Offline Mode active – connect to the internet to use Gemini AI.")
+            showError("Offline Mode active – connect to the internet to use AI Studio.")
             return
         }
         streamJob?.cancel()
         _result.value = null
         _streamingText.value = ""
         _isStreaming.value = true
-        _liveStatus.value = "Menghubungkan ke Gemini..."
+        _liveStatus.value = "Menyiapkan mesin AI..."
 
         streamJob = viewModelScope.launch {
-            val key = container.settings.apiKey.value
-            val model = container.settings.model.first()
+            val groqKey = container.settings.groqApiKey.value
+            val geminiKey = container.settings.apiKey.value
+            val geminiModel = container.settings.model.first()
+            val pref = container.settings.aiPreference.first()
             val lang = _language.value
             val sellerNotes = _notes.value
-            val acc = StringBuilder()
             try {
-                container.gemini.streamProductCopy(key, model, jpeg, lang, sellerNotes)
-                    .collect { delta ->
-                        if (acc.isEmpty()) _liveStatus.value = "Streaming respons..."
-                        acc.append(delta)
-                        val text = acc.toString()
+                val outcome = container.aiRouter.streamProductCopy(
+                    preference = pref,
+                    groqKey = groqKey,
+                    geminiKey = geminiKey,
+                    geminiModel = geminiModel,
+                    imageJpeg = jpeg,
+                    language = lang,
+                    notes = sellerNotes,
+                    onStatus = { engine, _, status ->
+                        _activeEngine.value = engine
+                        _liveStatus.value = status
+                    },
+                    onDelta = { text ->
                         _streamingText.value = text
                         _result.value = ProductCopy.parseStreaming(text)
                     }
-                val finalCopy = ProductCopy.parseStreaming(acc.toString())
+                )
+                val finalCopy = ProductCopy.parseStreaming(outcome.text)
                 _result.value = finalCopy
                 if (finalCopy.title.isNotBlank() || finalCopy.caption.isNotBlank()) {
                     withContext(Dispatchers.IO) {
@@ -131,9 +148,9 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
                             AiHistoryEntity(
                                 kind = AiHistoryKind.COPYWRITING,
                                 title = finalCopy.title.ifBlank { "Product Copywriting" },
-                                subtitle = "${lang.label} • $model",
+                                subtitle = "${lang.label} • ${outcome.modelId}",
                                 content = finalCopy.asPlainText().trim(),
-                                model = model
+                                model = outcome.modelId
                             )
                         )
                     }
@@ -141,7 +158,7 @@ class CopywriterViewModel(app: Application) : ToolViewModel(app) {
             } catch (_: CancellationException) {
                 // User cancelled or picked another photo
             } catch (e: GeminiException) {
-                showError(e.message ?: "Gemini error")
+                showError(e.message ?: "AI engine error")
             } catch (e: Exception) {
                 showError(e.message ?: e.javaClass.simpleName)
             } finally {
@@ -185,6 +202,8 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     val messages: StateFlow<List<ChatMessage>> = _messages
     private val _isStreaming = MutableStateFlow(false)
     val isStreaming: StateFlow<Boolean> = _isStreaming
+    private val _activeEngine = MutableStateFlow<AiEngine?>(null)
+    val activeEngine: StateFlow<AiEngine?> = _activeEngine
 
     private var docText: String? = null
     private var pageImages: List<ByteArray> = emptyList()
@@ -194,6 +213,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     fun pick(uri: Uri) {
         streamJob?.cancel()
         _isStreaming.value = false
+        _activeEngine.value = null
         runTask("Mengekstrak teks lokal...") {
             val src = PdfInputs.load(getApplication(), uri)
             val initialRange = if (src.pageCount <= 10) "all" else "1-10"
@@ -296,6 +316,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     fun stopStreaming() {
         streamJob?.cancel()
         _isStreaming.value = false
+        _activeEngine.value = null
         _messages.update { list ->
             if (list.isNotEmpty() && !list.last().fromUser && list.last().isStreaming) {
                 list.dropLast(1) + list.last().copy(isStreaming = false, streamPhase = null)
@@ -306,6 +327,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
     fun clearChat() {
         streamJob?.cancel()
         _isStreaming.value = false
+        _activeEngine.value = null
         history.clear()
         _messages.value = emptyList()
     }
@@ -317,7 +339,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
             return
         }
         if (!container.connectivity.online.value) {
-            showError("Offline Mode active – connect to the internet to query Gemini AI.")
+            showError("Offline Mode active – connect to the internet to query AI Studio.")
             return
         }
         streamJob?.cancel()
@@ -327,29 +349,39 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
 
         _messages.update {
             it + ChatMessage(fromUser = true, text = display, label = label) +
-                ChatMessage(fromUser = false, text = "", isStreaming = true, streamPhase = "Menghubungkan ke Gemini...")
+                ChatMessage(fromUser = false, text = "", isStreaming = true, streamPhase = "Menyiapkan mesin AI...")
         }
         _isStreaming.value = true
 
         streamJob = viewModelScope.launch {
-            val key = container.settings.apiKey.value
-            val model = container.settings.model.first()
-            val acc = StringBuilder()
+            val groqKey = container.settings.groqApiKey.value
+            val geminiKey = container.settings.apiKey.value
+            val geminiModel = container.settings.model.first()
+            val pref = container.settings.aiPreference.first()
             try {
-                container.gemini.streamChatAboutDocument(key, model, docText, pageImages, snapshot.takeLast(14))
-                    .collect { delta ->
-                        acc.append(delta)
-                        val partial = acc.toString()
+                val outcome = container.aiRouter.streamChatAboutDocument(
+                    preference = pref,
+                    groqKey = groqKey,
+                    geminiKey = geminiKey,
+                    geminiModel = geminiModel,
+                    documentText = docText,
+                    pageImages = pageImages,
+                    history = snapshot.takeLast(14),
+                    onStatus = { engine, _, phase ->
+                        _activeEngine.value = engine
                         _messages.update { list ->
                             if (list.isEmpty()) list
-                            else list.dropLast(1) + list.last().copy(
-                                text = partial,
-                                isStreaming = true,
-                                streamPhase = "Streaming respons..."
-                            )
+                            else list.dropLast(1) + list.last().copy(streamPhase = phase)
+                        }
+                    },
+                    onDelta = { partial ->
+                        _messages.update { list ->
+                            if (list.isEmpty()) list
+                            else list.dropLast(1) + list.last().copy(text = partial, isStreaming = true)
                         }
                     }
-                val finalReply = acc.toString().trim()
+                )
+                val finalReply = outcome.text
                 history += turn
                 history += GeminiContent.model(finalReply)
                 _messages.update { list ->
@@ -362,9 +394,9 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
                             AiHistoryEntity(
                                 kind = AiHistoryKind.PDF_SUMMARY,
                                 title = src.name,
-                                subtitle = "$display • Pages ${_pageRange.value}",
+                                subtitle = "$display • ${outcome.modelId} • Pages ${_pageRange.value}",
                                 content = finalReply,
-                                model = model
+                                model = outcome.modelId
                             )
                         )
                     }
@@ -373,7 +405,7 @@ class PdfAiViewModel(app: Application) : ToolViewModel(app) {
                 // Handled by stopStreaming / new request
             } catch (e: GeminiException) {
                 _messages.update { list -> if (list.size >= 2) list.dropLast(2) else emptyList() }
-                showError(e.message ?: "Gemini error")
+                showError(e.message ?: "AI engine error")
             } catch (e: Exception) {
                 _messages.update { list -> if (list.size >= 2) list.dropLast(2) else emptyList() }
                 showError(e.message ?: e.javaClass.simpleName)
@@ -414,7 +446,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val c = app.container
 
     val keyInput = MutableStateFlow("")
-    private var edited = false
+    private var editedGemini = false
+
+    val groqKeyInput = MutableStateFlow("")
+    private var editedGroq = false
 
     private val _connection = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
     val connection: StateFlow<ConnectionState> = _connection
@@ -422,8 +457,16 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _status = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status
 
+    private val _groqConnection = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
+    val groqConnection: StateFlow<ConnectionState> = _groqConnection
+
+    private val _groqStatus = MutableStateFlow<String?>(null)
+    val groqStatus: StateFlow<String?> = _groqStatus
+
     val savedKey: StateFlow<String> = c.settings.apiKey
+    val savedGroqKey: StateFlow<String> = c.settings.groqApiKey
     val themeMode: StateFlow<ThemeMode> = c.settings.themeMode.stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+    val aiPreference: StateFlow<AiPreference> = c.settings.aiPreference.stateIn(viewModelScope, SharingStarted.Eagerly, AiPreference.AUTO)
     val model: StateFlow<String> = c.settings.model.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_MODEL)
     val models: StateFlow<List<String>> = c.settings.knownModels.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_MODELS)
     val autoShow: StateFlow<Boolean> = c.settings.autoShowResults.stateIn(viewModelScope, SharingStarted.Eagerly, true)
@@ -439,52 +482,108 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            c.settings.apiKey.collect { if (!edited) keyInput.value = it }
+            c.settings.apiKey.collect { if (!editedGemini) keyInput.value = it }
+        }
+        viewModelScope.launch {
+            c.settings.groqApiKey.collect { if (!editedGroq) groqKeyInput.value = it }
         }
         refreshCacheSize()
     }
 
-    fun onKeyChanged(v: String) { edited = true; keyInput.value = v; _connection.value = ConnectionState.Idle; _status.value = null }
+    fun onKeyChanged(v: String) {
+        editedGemini = true
+        keyInput.value = v
+        _connection.value = ConnectionState.Idle
+        _status.value = null
+    }
 
     fun saveKey() {
         viewModelScope.launch {
             c.settings.saveApiKey(keyInput.value)
-            _status.value = if (keyInput.value.isBlank()) "API key removed." else "API key saved securely on this device."
+            _status.value = if (keyInput.value.isBlank()) "Gemini API key removed." else "Gemini API key saved securely on this device."
         }
     }
 
     fun clearKey() {
         viewModelScope.launch {
             c.settings.saveApiKey("")
-            edited = false
+            editedGemini = false
             keyInput.value = ""
             _connection.value = ConnectionState.Idle
-            _status.value = "API key removed."
+            _status.value = "Gemini API key removed."
         }
     }
 
-    fun testConnection() {
-        val key = keyInput.value.trim()
-        if (key.isEmpty()) { _connection.value = ConnectionState.Failed("Enter an API key first."); return }
+    fun testConnection() = runConnectionCheck(
+        key = keyInput.value.trim(),
+        stateFlow = _connection,
+        save = { c.settings.saveApiKey(it) },
+        ping = { k ->
+            val available = c.gemini.testConnection(k)
+            if (available.isNotEmpty()) {
+                c.settings.setKnownModels((DEFAULT_MODELS + available).distinct())
+            }
+            available.size
+        }
+    )
+
+    fun onGroqKeyChanged(v: String) {
+        editedGroq = true
+        groqKeyInput.value = v
+        _groqConnection.value = ConnectionState.Idle
+        _groqStatus.value = null
+    }
+
+    fun saveGroqKey() {
         viewModelScope.launch {
-            _connection.value = ConnectionState.Testing
+            c.settings.saveGroqApiKey(groqKeyInput.value)
+            _groqStatus.value = if (groqKeyInput.value.isBlank()) "Groq API key removed." else "Groq API key saved securely on this device."
+        }
+    }
+
+    fun clearGroqKey() {
+        viewModelScope.launch {
+            c.settings.saveGroqApiKey("")
+            editedGroq = false
+            groqKeyInput.value = ""
+            _groqConnection.value = ConnectionState.Idle
+            _groqStatus.value = "Groq API key removed."
+        }
+    }
+
+    fun testGroqConnection() = runConnectionCheck(
+        key = groqKeyInput.value.trim(),
+        stateFlow = _groqConnection,
+        save = { c.settings.saveGroqApiKey(it) },
+        ping = { k -> c.groq.testConnection(k).size }
+    )
+
+    private fun runConnectionCheck(
+        key: String,
+        stateFlow: MutableStateFlow<ConnectionState>,
+        save: suspend (String) -> Unit,
+        ping: suspend (String) -> Int
+    ) {
+        if (key.isEmpty()) {
+            stateFlow.value = ConnectionState.Failed("Enter an API key first.")
+            return
+        }
+        viewModelScope.launch {
+            stateFlow.value = ConnectionState.Testing
             try {
-                val available = c.gemini.testConnection(key)
-                c.settings.saveApiKey(key)
-                if (available.isNotEmpty()) {
-                    val merged = (DEFAULT_MODELS + available).distinct()
-                    c.settings.setKnownModels(merged)
-                }
-                _connection.value = ConnectionState.Connected(available.size)
+                val count = ping(key)
+                save(key)
+                stateFlow.value = ConnectionState.Connected(count)
             } catch (e: GeminiException) {
-                _connection.value = ConnectionState.Failed(e.message ?: "Connection failed")
+                stateFlow.value = ConnectionState.Failed(e.message ?: "Connection failed")
             } catch (e: Exception) {
-                _connection.value = ConnectionState.Failed(e.message ?: "Connection failed")
+                stateFlow.value = ConnectionState.Failed(e.message ?: "Connection failed")
             }
         }
     }
 
     fun setThemeMode(mode: ThemeMode) { viewModelScope.launch { c.settings.setThemeMode(mode) } }
+    fun setAiPreference(pref: AiPreference) { viewModelScope.launch { c.settings.setAiPreference(pref) } }
     fun setModel(m: String) { viewModelScope.launch { c.settings.setModel(m) } }
     fun setAutoShow(v: Boolean) { viewModelScope.launch { c.settings.setAutoShowResults(v) } }
     fun setDefaultQuality(q: Int) { viewModelScope.launch { c.settings.setDefaultQuality(q) } }

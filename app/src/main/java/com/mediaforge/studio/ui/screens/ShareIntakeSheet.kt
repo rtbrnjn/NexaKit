@@ -92,7 +92,7 @@ fun ShareIntakeSheet(
             }
 
             if (share.pdfs.size == 1 && share.images.isEmpty()) {
-                ShareOptionRow("Summarize / Ask Gemini AI", "Instant streaming Q&A & translation", Icons.Rounded.AutoAwesome, Glass.Cyan) {
+                ShareOptionRow("Summarize / Ask AI Studio", "Instant Groq LPU & Gemini streaming Q&A", Icons.Rounded.AutoAwesome, Glass.Cyan) {
                     onSelect(ShareAction.AI_PDF_SUMMARY)
                 }
                 ShareOptionRow("Convert PDF to Word (.docx)", "Extract editable Word document", Icons.Rounded.Description, Glass.Emerald) {

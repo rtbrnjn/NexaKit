@@ -6,9 +6,9 @@ Designed around an Apple-inspired **True Liquid Glass** aesthetic with real-time
 
 ---
 
-## Download & Install APK (`v1.3.0`)
+## Download & Install APK (`v1.4.0`)
 
-- **Direct Download (`v1.3.0`):** [app-release.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.3.0/app-release.apk)
+- **Direct Download (`v1.4.0`):** [app-release.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.0/app-release.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
@@ -18,7 +18,19 @@ Designed around an Apple-inspired **True Liquid Glass** aesthetic with real-time
 
 ---
 
-## What's New in v1.3.0 ("True Liquid Glass Edition")
+## What's New in v1.4.0 ("Dual-Engine AI Studio & True Liquid Glass")
+- **Dual-Engine AI Studio (Groq LPU Ultra-Fast + Google Gemini):**
+  - Mendukung penuh **Groq REST API** (`https://api.groq.com/openai/v1/chat/completions`) dengan SSE streaming real-time:
+    - **PDF Summarizer & Chat:** `llama-3.3-70b-versatile` (respons kilat & akurat).
+    - **AI Product Copywriter & Vision:** `meta-llama/llama-4-scout-17b-16e-instruct` (otomatis fallback ke `llama-3.2-11b-vision-preview`) dengan kompresi gambar `768px` / `75%` JPEG.
+  - **Smart Auto-Routing & Auto-Fallback:** Default otomatis memakai **Groq (Ultra-Fast)** saat Groq API Key tersedia, menampilkan badge dinamis (`Groq LPU · Llama 3.3` / `Gemini`), dan otomatis beralih ke mesin cadangan jika terjadi gangguan (`503`/rate-limit).
+- **Dual Key Encrypted Vault & Panduan Interaktif API Key di Settings:**
+  - Kolom terpisah untuk **Groq API Key (`gsk_...`)** (verifikasi ping ke `/openai/v1/models`) dan **Google Gemini API Key (`AIza...`)** (`gemini-3.8-flash` / `gemini-3.5-flash-lite`), tersimpan terenkripsi via `EncryptedSharedPreferences`.
+  - Kartu **"Cara Mendapatkan API Key Gratis?"** yang membuka panduan langkah Bahasa Indonesia + tombol langsung ke **Groq Console** (`console.groq.com`) dan **Google AI Studio** (`aistudio.google.com/apikey`).
+- **Penyempurnaan True Liquid Glass:**
+  - `LiquidGlassBackdrop` ambient mesh berpadu kartu transparan (`alpha = 0.06f` Dark / `0.60f` Light), frosted blur nyata, garis refleksi gradasi diagonal `1.dp`, *sliding spring pill*, dan padding aman bawah `120.dp` di semua layar.
+
+## Previous Highlights (v1.3.0)
 - **Animated Ambient Mesh Backdrop (`LiquidGlassBackdrop`)** — Pendaran cahaya radial lembut (biru safir, teal zamrud, dan indigo di Dark Mode; biru langit & mint lembut di Light Mode) bergerak perlahan di balik seluruh layar dan membias melalui kartu kaca di atasnya.
 - **Layered Translucent Glass Material (`LiquidGlassCard` & `LiquidGlassPill`)** — Kartu kaca berlapis dengan opasitas adaptif (`0.08f` Dark / `0.65f` Light), frosted blur nyata via `Haze`, garis tepi pantulan cahaya gradasi diagonal (`35%` -> `6%`), kilau atas tipis, tata letak lega, serta tombol aksi kapsul kaca.
 - **Floating Frosted Top Header, Navbar & Smooth Transitions** — Dock navigasi atas & bawah mengambang dengan efek blur latar nyata, spring sliding pill (`dampingRatio = 0.8f`, `stiffness = 360f`), animasi transisi `fadeIn + scaleIn(0.98f)`, serta padding aman bawah (`118.dp`).

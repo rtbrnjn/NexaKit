@@ -115,7 +115,7 @@ import kotlinx.coroutines.launch
 private enum class TopTab(val route: String, val label: String, val icon: ImageVector) {
     MEDIA_LAB("media_lab", "Media Lab", Icons.Rounded.PhotoLibrary),
     PDF_SUITE("pdf_suite", "PDF Suite", Icons.Rounded.PictureAsPdf),
-    GEMINI_AI("gemini_ai", "Gemini AI", Icons.Rounded.AutoAwesome),
+    GEMINI_AI("gemini_ai", "AI Studio", Icons.Rounded.AutoAwesome),
     SETTINGS("settings", "Settings", Icons.Rounded.Tune)
 }
 

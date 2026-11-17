@@ -2,8 +2,13 @@ package com.mediaforge.studio.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,7 +35,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoDelete
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDone
@@ -47,16 +54,20 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +81,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -79,6 +91,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mediaforge.studio.ai.AiEngine
+import com.mediaforge.studio.ai.AiPreference
+import com.mediaforge.studio.ai.AiRouting
 import com.mediaforge.studio.core.Actions
 import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.core.OutputKind
@@ -91,6 +106,7 @@ import com.mediaforge.studio.ui.components.ChoiceRow
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassIconButton
+import com.mediaforge.studio.ui.components.GlassSegmentedBar
 import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
@@ -107,6 +123,11 @@ import com.mediaforge.studio.vm.ConnectionState
 import com.mediaforge.studio.vm.SettingsViewModel
 import dev.chrisbanes.haze.hazeSource
 
+private enum class GuideProvider(val label: String, val icon: ImageVector) {
+    GROQ("Groq (Cepat)", Icons.Rounded.Bolt),
+    GEMINI("Google Gemini", Icons.Rounded.AutoAwesome)
+}
+
 @Composable
 fun SettingsScreen(vm: SettingsViewModel) {
     val ctx = LocalContext.current
@@ -115,9 +136,18 @@ fun SettingsScreen(vm: SettingsViewModel) {
     val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 10.dp
 
     val themeMode by vm.themeMode.collectAsState()
+    val aiPref by vm.aiPreference.collectAsState()
+
+    val groqKeyInput by vm.groqKeyInput.collectAsState()
+    val savedGroqKey by vm.savedGroqKey.collectAsState()
+    val groqConnection by vm.groqConnection.collectAsState()
+    val groqStatus by vm.groqStatus.collectAsState()
+
     val keyInput by vm.keyInput.collectAsState()
+    val savedGeminiKey by vm.savedKey.collectAsState()
     val connection by vm.connection.collectAsState()
     val status by vm.status.collectAsState()
+
     val model by vm.model.collectAsState()
     val autoShow by vm.autoShow.collectAsState()
     val defaultQuality by vm.defaultQuality.collectAsState()
@@ -128,13 +158,22 @@ fun SettingsScreen(vm: SettingsViewModel) {
     val history by vm.history.collectAsState()
     val online by vm.online.collectAsState()
 
-    var revealKey by remember { mutableStateOf(false) }
+    var showGuideSheet by remember { mutableStateOf(false) }
     var permsGranted by remember { mutableStateOf(Permissions.granted(ctx)) }
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permsGranted = Permissions.granted(ctx)
     }
 
     LaunchedEffect(Unit) { vm.refreshCacheSize() }
+
+    val primaryEngine = AiRouting.resolvePrimaryEngine(aiPref, savedGroqKey.isNotBlank(), savedGeminiKey.isNotBlank())
+    val headerReady = online && primaryEngine != null
+    val headerBadgeText = when {
+        !online -> "Offline Mode"
+        primaryEngine == AiEngine.GROQ -> "Groq LPU Ready"
+        primaryEngine == AiEngine.GEMINI -> "Gemini Online"
+        else -> "No Key Yet"
+    }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -143,7 +182,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 .let { if (chromeHaze != null) it.hazeSource(chromeHaze, zIndex = 1f) else it }
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = 118.dp),
+                .padding(top = topPadding, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ------------------------------------------------------------------ 1. Appearance (Sliding Liquid Pill)
@@ -155,119 +194,88 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 Hint("Liquid Glass adapts frosted transparency across Light & Dark themes.")
             }
 
-            // ------------------------------------------------------------------ 2. Gemini AI Configuration + Dropdown Selector
+            // ------------------------------------------------------------------ 2. Dual-Engine AI Configuration (Groq + Gemini)
             GlassCard(Modifier.fillMaxWidth()) {
-                Text("Gemini AI Configuration", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                Text("Dual-Engine AI Vault", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                 Spacer(Modifier.height(2.dp))
-                Hint("API key encrypted locally on your device")
+                Hint("API keys are encrypted locally on this device via Android Keystore.")
                 Spacer(Modifier.height(14.dp))
 
-                GlassTextField(
-                    value = keyInput,
-                    onValueChange = vm::onKeyChanged,
-                    label = "API Key",
+                SectionLabel("Primary AI Engine")
+                Spacer(Modifier.height(8.dp))
+                ChoiceRow(
+                    options = AiPreference.entries,
+                    selected = aiPref,
+                    label = { it.label },
+                    onSelect = vm::setAiPreference
+                )
+                Spacer(Modifier.height(6.dp))
+                Hint("Auto uses Groq LPU (ultra-fast) when a Groq key is saved, and switches seamlessly to your backup key if 503/rate-limit occurs.")
+
+                Spacer(Modifier.height(16.dp))
+                ApiKeyVaultSection(
+                    title = "1. Groq API Key (Ultra-Fast LPU)",
+                    subtitle = "PDF: llama-3.3-70b-versatile • Vision: llama-4-scout-17b",
+                    fieldLabel = "Groq API Key",
+                    placeholder = "gsk_…",
+                    keyInput = groqKeyInput,
+                    onKeyChanged = vm::onGroqKeyChanged,
+                    onSave = vm::saveGroqKey,
+                    onVerify = vm::testGroqConnection,
+                    onDelete = vm::clearGroqKey,
+                    connection = groqConnection,
+                    statusText = groqStatus,
+                    verifiedUnit = "Groq",
+                    accent = Glass.Emerald
+                )
+
+                Spacer(Modifier.height(18.dp))
+                ApiKeyVaultSection(
+                    title = "2. Google Gemini API Key (Backup / Vision)",
+                    subtitle = "Default: gemini-3.8-flash / gemini-3.5-flash-lite",
+                    fieldLabel = "Google Gemini API Key",
                     placeholder = "AIza…",
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    visualTransformation = if (revealKey) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailing = {
-                        IconButton(onClick = { revealKey = !revealKey }) {
-                            Icon(
-                                if (revealKey) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                                contentDescription = "Toggle key visibility",
-                                tint = Glass.TextSecondary
-                            )
-                        }
-                    }
+                    keyInput = keyInput,
+                    onKeyChanged = vm::onKeyChanged,
+                    onSave = vm::saveKey,
+                    onVerify = vm::testConnection,
+                    onDelete = vm::clearKey,
+                    connection = connection,
+                    statusText = status,
+                    verifiedUnit = "Gemini",
+                    accent = Glass.Cyan
                 )
 
                 Spacer(Modifier.height(14.dp))
-                SectionLabel("Dropdown Selector")
+                SectionLabel("Gemini Model Selector")
                 Spacer(Modifier.height(8.dp))
                 ModelDropdownSelector(selectedModel = model, onSelectModel = vm::setModel)
+            }
 
-                Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    GlassButton(
-                        text = "Save Key",
-                        icon = Icons.Rounded.Key,
-                        primary = true,
-                        onClick = vm::saveKey,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (keyInput.isNotBlank()) {
-                        Spacer(Modifier.width(8.dp))
-                        GlassIconButton(Icons.Rounded.Delete, "Remove Key", vm::clearKey, tint = Glass.Danger)
+            // ------------------------------------------------------------------ Interactive API Key Tutorial Trigger
+            GlassCard(
+                Modifier.fillMaxWidth(),
+                accent = Glass.Cyan,
+                onClick = { showGuideSheet = true },
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.18f else 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Rounded.TipsAndUpdates, null, tint = Glass.Cyan, modifier = Modifier.size(21.dp))
                     }
-                }
-
-                Spacer(Modifier.height(10.dp))
-                GlassButton(
-                    text = "Verify Key",
-                    icon = Icons.Rounded.CloudDone,
-                    primary = false,
-                    onClick = vm::testConnection,
-                    modifier = Modifier.fillMaxWidth(),
-                    trailing = if (connection is ConnectionState.Connected) {
-                        {
-                            Box(
-                                Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.25f else 0.18f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Rounded.Check, null, tint = Glass.Emerald, modifier = Modifier.size(14.dp))
-                            }
-                        }
-                    } else null
-                )
-
-                if (status != null) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(status!!, style = MaterialTheme.typography.bodySmall, color = Glass.Emerald)
-                }
-
-                when (val c = connection) {
-                    ConnectionState.Idle -> Unit
-                    ConnectionState.Testing -> {
-                        Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Glass.Cyan)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Pinging Gemini API…", style = MaterialTheme.typography.bodySmall, color = Glass.Cyan)
-                        }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Cara Mendapatkan API Key Gratis?", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                        Spacer(Modifier.height(2.dp))
+                        Hint("Panduan cepat daftar Groq (gsk_...) & Gemini (AIza...) + link langsung")
                     }
-                    is ConnectionState.Connected -> {
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Rounded.CheckCircle, null, tint = Glass.Emerald, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Verified! ${c.modelCount} Gemini models available.", style = MaterialTheme.typography.bodySmall, color = Glass.Emerald)
-                        }
-                    }
-                    is ConnectionState.Failed -> {
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Glass.Danger.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Rounded.ErrorOutline, null, tint = Glass.Danger, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(c.message, style = MaterialTheme.typography.bodySmall, color = Glass.Danger)
-                        }
-                    }
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open guide", tint = Glass.Cyan, modifier = Modifier.size(18.dp))
                 }
             }
 
@@ -439,9 +447,9 @@ fun SettingsScreen(vm: SettingsViewModel) {
             GlassCard(Modifier.fillMaxWidth()) {
                 SectionLabel("About NexaKit")
                 Spacer(Modifier.height(6.dp))
-                Text("NexaKit v1.3.0 (Build 5)", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                Text("NexaKit v1.4.0 (Build 7)", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                 Spacer(Modifier.height(4.dp))
-                Hint("True Liquid Glass Edition • Ambient Mesh Blur • Offline Media & 12-Tool PDF Suite • Local ML Kit OCR + Gemini 3.8 SSE • Room History Vault & Share Target.")
+                Hint("True Liquid Glass Edition • Dual-Engine Groq LPU + Gemini 3.8 SSE • Auto-Fallback • Offline Media & 12-Tool PDF Suite • ML Kit OCR • Room History Vault & Share Target.")
                 Spacer(Modifier.height(6.dp))
                 Text("Package: com.mediaforge.studio", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
             }
@@ -456,9 +464,265 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 .padding(horizontal = 16.dp)
                 .padding(top = 12.dp, bottom = 4.dp),
             trailing = {
-                if (online) OnlineBadge() else OfflineBadge(compact = true)
+                if (headerReady) {
+                    OnlineBadge(
+                        label = headerBadgeText,
+                        accent = if (primaryEngine == AiEngine.GROQ) Glass.Emerald else Glass.Cyan
+                    )
+                } else {
+                    OfflineBadge(compact = true)
+                }
             }
         )
+
+        if (showGuideSheet) {
+            ApiKeyTutorialSheet(onDismiss = { showGuideSheet = false })
+        }
+    }
+}
+
+@Composable
+private fun ApiKeyVaultSection(
+    title: String,
+    subtitle: String,
+    fieldLabel: String,
+    placeholder: String,
+    keyInput: String,
+    onKeyChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onVerify: () -> Unit,
+    onDelete: () -> Unit,
+    connection: ConnectionState,
+    statusText: String?,
+    verifiedUnit: String,
+    accent: Color
+) {
+    var reveal by remember { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxWidth()) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = accent)
+        Spacer(Modifier.height(2.dp))
+        Hint(subtitle)
+        Spacer(Modifier.height(8.dp))
+
+        GlassTextField(
+            value = keyInput,
+            onValueChange = onKeyChanged,
+            label = fieldLabel,
+            placeholder = placeholder,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(),
+            trailing = {
+                IconButton(onClick = { reveal = !reveal }) {
+                    Icon(
+                        if (reveal) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        contentDescription = "Toggle visibility",
+                        tint = Glass.TextSecondary
+                    )
+                }
+            }
+        )
+
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GlassButton(
+                text = "Save",
+                icon = Icons.Rounded.Key,
+                primary = true,
+                compact = true,
+                onClick = onSave,
+                modifier = Modifier.weight(1f)
+            )
+            GlassButton(
+                text = "Verify Key",
+                icon = Icons.Rounded.CloudDone,
+                primary = false,
+                compact = true,
+                onClick = onVerify,
+                modifier = Modifier.weight(1.15f),
+                trailing = if (connection is ConnectionState.Connected) {
+                    {
+                        Box(
+                            Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.25f else 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.Check, null, tint = Glass.Emerald, modifier = Modifier.size(12.dp))
+                        }
+                    }
+                } else null
+            )
+            if (keyInput.isNotBlank()) {
+                GlassIconButton(Icons.Rounded.Delete, "Delete $verifiedUnit key", onDelete, tint = Glass.Danger)
+            }
+        }
+
+        if (statusText != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(statusText, style = MaterialTheme.typography.bodySmall, color = Glass.Emerald)
+        }
+
+        when (connection) {
+            ConnectionState.Idle -> Unit
+            ConnectionState.Testing -> {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(15.dp), strokeWidth = 2.dp, color = accent)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Pinging $verifiedUnit API…", style = MaterialTheme.typography.bodySmall, color = accent)
+                }
+            }
+            is ConnectionState.Connected -> {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
+                        .padding(11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.CheckCircle, null, tint = Glass.Emerald, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Verified! ${connection.modelCount} $verifiedUnit models available.", style = MaterialTheme.typography.bodySmall, color = Glass.Emerald)
+                }
+            }
+            is ConnectionState.Failed -> {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Glass.Danger.copy(alpha = if (Glass.IsDark) 0.14f else 0.10f))
+                        .padding(11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.ErrorOutline, null, tint = Glass.Danger, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(connection.message, style = MaterialTheme.typography.bodySmall, color = Glass.Danger)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ApiKeyTutorialSheet(onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var tab by remember { mutableStateOf(GuideProvider.GROQ) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Glass.Surface,
+        contentColor = Glass.TextPrimary,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.TipsAndUpdates, null, tint = Glass.Cyan, modifier = Modifier.size(21.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Cara Mendapatkan API Key Gratis", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                    Hint("Pilih penyedia AI untuk melihat langkah & tombol cepat")
+                }
+            }
+
+            GlassSegmentedBar(
+                items = GuideProvider.entries,
+                selected = tab,
+                label = { it.label },
+                icon = { it.icon },
+                onSelect = { tab = it }
+            )
+
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = { fadeIn(tween(180)).togetherWith(fadeOut(tween(140))) },
+                label = "apiGuideTab"
+            ) { provider ->
+                when (provider) {
+                    GuideProvider.GROQ -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Hint("Direkomendasikan — Super Cepat (Llama 3.3 & Llama 4 Scout)")
+                        TutorialStepRow(1, "Buka console.groq.com di browser.", accent = Glass.Emerald)
+                        TutorialStepRow(2, "Login gratis menggunakan akun Google atau GitHub kamu.", accent = Glass.Emerald)
+                        TutorialStepRow(3, "Pilih menu API Keys di panel kiri, lalu klik tombol Create API Key.", accent = Glass.Emerald)
+                        TutorialStepRow(4, "Beri nama bebas (misal: NexaKit), salin kode berawalan gsk_..., lalu tempel di kolom atas dan tekan Save.", accent = Glass.Emerald)
+                        Spacer(Modifier.height(4.dp))
+                        GlassButton(
+                            text = "Buka Groq Console",
+                            icon = Icons.AutoMirrored.Rounded.OpenInNew,
+                            primary = true,
+                            onClick = { Actions.openUrl(ctx, "https://console.groq.com") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    GuideProvider.GEMINI -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Hint("Mesin cadangan & analisis multimoda Google Gemini 3.8 Flash")
+                        TutorialStepRow(1, "Buka aistudio.google.com/apikey di browser.", accent = Glass.Cyan)
+                        TutorialStepRow(2, "Login dengan akun Google, klik Create API Key, lalu salin kode AIza... ke kolom Gemini di atas.", accent = Glass.Cyan)
+                        Spacer(Modifier.height(4.dp))
+                        GlassButton(
+                            text = "Buka Google AI Studio",
+                            icon = Icons.AutoMirrored.Rounded.OpenInNew,
+                            primary = true,
+                            onClick = { Actions.openUrl(ctx, "https://aistudio.google.com/apikey") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+
+            GlassButton(
+                text = "Tutup Panduan",
+                primary = false,
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun TutorialStepRow(step: Int, text: String, accent: Color) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Glass.CardFillSubtle)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(accent.copy(alpha = if (Glass.IsDark) 0.20f else 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("$step", style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = Glass.TextPrimary, modifier = Modifier.weight(1f))
     }
 }
 

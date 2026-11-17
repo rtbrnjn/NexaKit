@@ -1,5 +1,10 @@
 package com.mediaforge.studio
 
+import com.mediaforge.studio.ai.AiEngine
+import com.mediaforge.studio.ai.AiPreference
+import com.mediaforge.studio.ai.AiRouting
+import com.mediaforge.studio.ai.GeminiException
+import com.mediaforge.studio.ai.GroqClient
 import com.mediaforge.studio.ai.ProductCopy
 import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.data.DEFAULT_MODEL
@@ -105,13 +110,32 @@ class MediaForgeUnitTest {
         assertEquals(listOf("System", "Light", "Dark"), ThemeMode.entries.map { it.label })
         assertEquals("gemini-3.8-flash", DEFAULT_MODEL)
         assertEquals(
-            listOf("gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-4-hydrogen"),
+            listOf("gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-3.5-flash-lite", "gemini-4-hydrogen"),
             RECOMMENDED_MODELS.map { it.id }
         )
         assertEquals("gemini-3.8-flash", migrateStoredModel("gemini-2.5-flash"))
         assertEquals("gemini-3.8-flash-lite", migrateStoredModel("gemini-2.5-flash-lite"))
         assertEquals("gemini-4-hydrogen", migrateStoredModel("gemini-4-hydrogen"))
         assertEquals("gemini-3.8-flash", migrateStoredModel(null))
+    }
+
+    @Test
+    fun aiRouting_selectsGroqDefaultAndFallsBackCleanly() {
+        assertEquals(AiEngine.GROQ, AiRouting.resolvePrimaryEngine(AiPreference.AUTO, hasGroqKey = true, hasGeminiKey = true))
+        assertEquals(AiEngine.GEMINI, AiRouting.resolvePrimaryEngine(AiPreference.AUTO, hasGroqKey = false, hasGeminiKey = true))
+        assertEquals(null, AiRouting.resolvePrimaryEngine(AiPreference.AUTO, hasGroqKey = false, hasGeminiKey = false))
+        assertEquals(
+            listOf(AiEngine.GROQ, AiEngine.GEMINI),
+            AiRouting.resolveEngineSequence(AiPreference.AUTO, hasGroqKey = true, hasGeminiKey = true)
+        )
+        assertEquals(
+            listOf(AiEngine.GEMINI, AiEngine.GROQ),
+            AiRouting.resolveEngineSequence(AiPreference.GEMINI, hasGroqKey = true, hasGeminiKey = true)
+        )
+        assertTrue(AiRouting.shouldAttemptFallback(GeminiException(GeminiException.Kind.SERVER, "503"), emittedAny = false))
+        assertFalse(AiRouting.shouldAttemptFallback(GeminiException(GeminiException.Kind.SERVER, "503"), emittedAny = true))
+        assertEquals("llama-3.3-70b-versatile", GroqClient.TEXT_MODEL)
+        assertEquals("meta-llama/llama-4-scout-17b-16e-instruct", GroqClient.VISION_PRIMARY_MODEL)
     }
 
     @Test

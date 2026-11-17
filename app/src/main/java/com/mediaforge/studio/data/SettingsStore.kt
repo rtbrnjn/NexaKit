@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.mediaforge.studio.ai.AiPreference
 import com.mediaforge.studio.pdf.PdfPageMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,7 @@ data class GeminiModelChoice(val id: String, val displayLabel: String)
 val RECOMMENDED_MODELS = listOf(
     GeminiModelChoice("gemini-3.8-flash", "gemini-3.8-flash (Recommended - Fast)"),
     GeminiModelChoice("gemini-3.8-flash-lite", "gemini-3.8-flash-lite (Ultra Fast)"),
+    GeminiModelChoice("gemini-3.5-flash-lite", "gemini-3.5-flash-lite (Compact Fast)"),
     GeminiModelChoice("gemini-4-hydrogen", "gemini-4-hydrogen (Deep Reasoning)")
 )
 
@@ -54,7 +56,7 @@ enum class ThemeMode(val label: String) {
     DARK("Dark")
 }
 
-/** Stores the Gemini API key in EncryptedSharedPreferences (AES-256, Keystore-backed master key). */
+/** Stores encrypted Gemini & Groq API keys in EncryptedSharedPreferences (AES-256, Keystore-backed master key). */
 class SecureKeyStore(private val context: Context) {
     private val prefs: SharedPreferences by lazy { open() }
 
@@ -75,12 +77,13 @@ class SecureKeyStore(private val context: Context) {
         }
     }
 
-    fun read(): String = prefs.getString(KEY, "").orEmpty()
-    fun write(value: String) { prefs.edit().putString(KEY, value).apply() }
+    fun read(slot: String = KEY_GEMINI): String = prefs.getString(slot, "").orEmpty()
+    fun write(value: String, slot: String = KEY_GEMINI) { prefs.edit().putString(slot, value).apply() }
 
-    private companion object {
-        const val FILE = "mediaforge_secure_vault"
-        const val KEY = "gemini_api_key"
+    companion object {
+        private const val FILE = "mediaforge_secure_vault"
+        const val KEY_GEMINI = "gemini_api_key"
+        const val KEY_GROQ = "groq_api_key"
     }
 }
 
@@ -91,9 +94,17 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     private val _apiKey = MutableStateFlow("")
     val apiKey: StateFlow<String> = _apiKey
 
+    private val _groqApiKey = MutableStateFlow("")
+    val groqApiKey: StateFlow<String> = _groqApiKey
+
     val themeMode: Flow<ThemeMode> = ds.data.map { prefs ->
         val raw = prefs[THEME_MODE] ?: ThemeMode.SYSTEM.name
         runCatching { ThemeMode.valueOf(raw) }.getOrDefault(ThemeMode.SYSTEM)
+    }
+
+    val aiPreference: Flow<AiPreference> = ds.data.map { prefs ->
+        val raw = prefs[AI_PREFERENCE] ?: AiPreference.AUTO.name
+        runCatching { AiPreference.valueOf(raw) }.getOrDefault(AiPreference.AUTO)
     }
 
     val model: Flow<String> = ds.data.map { migrateStoredModel(it[MODEL]) }
@@ -112,7 +123,10 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     val totalBytesSaved: Flow<Long> = ds.data.map { (it[TOTAL_BYTES_SAVED] ?: 0L).coerceAtLeast(0L) }
 
     init {
-        scope.launch(Dispatchers.IO) { _apiKey.value = runCatching { secure.read() }.getOrDefault("") }
+        scope.launch(Dispatchers.IO) {
+            _apiKey.value = runCatching { secure.read(SecureKeyStore.KEY_GEMINI) }.getOrDefault("")
+            _groqApiKey.value = runCatching { secure.read(SecureKeyStore.KEY_GROQ) }.getOrDefault("")
+        }
         scope.launch(Dispatchers.IO) {
             runCatching {
                 ds.edit { prefs ->
@@ -134,11 +148,18 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
 
     suspend fun saveApiKey(key: String) = withContext(Dispatchers.IO) {
         val trimmed = key.trim()
-        secure.write(trimmed)
+        secure.write(trimmed, SecureKeyStore.KEY_GEMINI)
         _apiKey.value = trimmed
     }
 
+    suspend fun saveGroqApiKey(key: String) = withContext(Dispatchers.IO) {
+        val trimmed = key.trim()
+        secure.write(trimmed, SecureKeyStore.KEY_GROQ)
+        _groqApiKey.value = trimmed
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) { ds.edit { it[THEME_MODE] = mode.name } }
+    suspend fun setAiPreference(pref: AiPreference) { ds.edit { it[AI_PREFERENCE] = pref.name } }
     suspend fun setModel(model: String) { ds.edit { it[MODEL] = model } }
     suspend fun setAutoShowResults(v: Boolean) { ds.edit { it[AUTO_SHEET] = v } }
     suspend fun setPermissionAsked(v: Boolean) { ds.edit { it[PERM_ASKED] = v } }
@@ -154,6 +175,7 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
 
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val AI_PREFERENCE = stringPreferencesKey("ai_preference")
         val MODEL = stringPreferencesKey("gemini_model")
         val AUTO_SHEET = booleanPreferencesKey("auto_show_results")
         val PERM_ASKED = booleanPreferencesKey("permission_asked")
