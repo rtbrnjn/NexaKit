@@ -71,6 +71,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mediaforge.studio.core.Permissions
+import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.ui.components.LiquidGlassBackdrop
 import com.mediaforge.studio.ui.components.LocalBackdropHazeState
@@ -108,9 +109,11 @@ import com.mediaforge.studio.vm.SplitPdfViewModel
 import com.mediaforge.studio.vm.TextToPdfViewModel
 import com.mediaforge.studio.vm.UnlockPdfViewModel
 import com.mediaforge.studio.vm.WatermarkPdfViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 private enum class TopTab(val route: String, val label: String, val icon: ImageVector) {
     MEDIA_LAB("media_lab", "Media Lab", Icons.Rounded.PhotoLibrary),
@@ -119,13 +122,17 @@ private enum class TopTab(val route: String, val label: String, val icon: ImageV
     SETTINGS("settings", "Settings", Icons.Rounded.Tune)
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var settings: SettingsStore
+    @Inject lateinit var coordinator: AppCoordinator
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleIncomingIntent(intent)
         setContent {
-            val container = (application as MediaForgeApp).container
-            val themeMode by container.settings.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val dark = isThemeDark(themeMode)
 
             SideEffect {
@@ -138,7 +145,7 @@ class MainActivity : ComponentActivity() {
             }
 
             MediaForgeTheme(themeMode = themeMode) {
-                MediaForgeRoot()
+                MediaForgeRoot(settings = settings, coordinator = coordinator)
             }
         }
     }
@@ -166,16 +173,17 @@ class MainActivity : ComponentActivity() {
             for (i in 0 until clip.itemCount) clip.getItemAt(i).uri?.let { uris += it }
         }
         if (uris.isNotEmpty()) {
-            (application as MediaForgeApp).container.receiveSharedUris(uris)
+            coordinator.receiveSharedUris(uris)
         }
     }
 }
 
 @Composable
-private fun MediaForgeRoot() {
+private fun MediaForgeRoot(
+    settings: SettingsStore,
+    coordinator: AppCoordinator
+) {
     val ctx = LocalContext.current
-    val app = ctx.applicationContext as MediaForgeApp
-    val container = app.container
     val scope = rememberCoroutineScope()
 
     val backdropHazeState = rememberHazeState()
@@ -209,16 +217,16 @@ private fun MediaForgeRoot() {
     var requestedPdfTool by remember { mutableStateOf<PdfTool?>(null) }
     var requestedAiTool by remember { mutableStateOf<AiTool?>(null) }
 
-    val results by container.results.collectAsState()
-    val incomingShare by container.incomingShare.collectAsState()
-    val shareDispatch by container.shareDispatch.collectAsState()
+    val results by coordinator.results.collectAsState()
+    val incomingShare by coordinator.incomingShare.collectAsState()
+    val shareDispatch by coordinator.shareDispatch.collectAsState()
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        scope.launch { container.settings.setPermissionAsked(true) }
+        scope.launch { settings.setPermissionAsked(true) }
     }
 
     LaunchedEffect(Unit) {
-        val alreadyAsked = container.settings.permissionAsked.first()
+        val alreadyAsked = settings.permissionAsked.first()
         if (!alreadyAsked && !Permissions.granted(ctx)) {
             permLauncher.launch(Permissions.required())
         }
@@ -291,7 +299,7 @@ private fun MediaForgeRoot() {
                 navigateTo(TopTab.PDF_SUITE)
             }
         }
-        container.consumeShareDispatch()
+        coordinator.consumeShareDispatch()
     }
 
     CompositionLocalProvider(
@@ -377,13 +385,13 @@ private fun MediaForgeRoot() {
 
             ShareIntakeSheet(
                 share = incomingShare,
-                onSelect = container::dispatchShareAction,
-                onDismiss = container::dismissIncomingShare
+                onSelect = coordinator::dispatchShareAction,
+                onDismiss = coordinator::dismissIncomingShare
             )
 
             ResultSheet(
                 files = results,
-                onDismiss = container::dismissResults
+                onDismiss = coordinator::dismissResults
             )
         }
     }

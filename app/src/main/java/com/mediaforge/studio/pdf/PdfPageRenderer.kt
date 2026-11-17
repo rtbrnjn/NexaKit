@@ -32,12 +32,35 @@ class PdfPageRenderer(file: File) : Closeable {
     }
 
     /** Renders `index` so its width is `widthPx` (height follows the page aspect ratio). */
-    fun renderToWidth(index: Int, widthPx: Int): Bitmap = synchronized(this) {
+    fun renderToWidth(index: Int, widthPx: Int): Bitmap =
+        renderToWidthAdaptive(index, widthPx, maxHeightPx = Int.MAX_VALUE, reuse = null)
+
+    /**
+     * Renders `index` at up to `widthPx` width and `maxHeightPx` height.
+     * When [reuse] matches the computed dimensions and is mutable ARGB_8888, it is cleared and
+     * rewritten in-place to eliminate per-page bitmap allocation churn during batch OCR.
+     */
+    fun renderToWidthAdaptive(
+        index: Int,
+        widthPx: Int,
+        maxHeightPx: Int = 2200,
+        reuse: Bitmap? = null
+    ): Bitmap = synchronized(this) {
         check(!closed) { "Renderer closed" }
         renderer.openPage(index).use { page ->
-            val w = widthPx.coerceAtLeast(16)
-            val h = (w.toLong() * page.height / page.width).toInt().coerceAtLeast(16)
-            drawPage(page, w, h)
+            val safePageW = page.width.coerceAtLeast(1)
+            val safePageH = page.height.coerceAtLeast(1)
+            val targetW = widthPx.coerceAtLeast(16)
+            val rawH = (targetW.toLong() * safePageH / safePageW).toInt().coerceAtLeast(16)
+            val (w, h) = if (rawH > maxHeightPx) {
+                val clampedW = (maxHeightPx.toLong() * safePageW / safePageH).toInt().coerceAtLeast(16)
+                clampedW to maxHeightPx
+            } else {
+                targetW to rawH
+            }
+            val bmp = obtainBitmap(w, h, reuse)
+            drawPage(page, bmp)
+            bmp
         }
     }
 
@@ -50,18 +73,28 @@ class PdfPageRenderer(file: File) : Closeable {
             if (longest > maxSide) scale *= maxSide / longest
             val w = (page.width * scale).roundToInt().coerceAtLeast(16)
             val h = (page.height * scale).roundToInt().coerceAtLeast(16)
-            drawPage(page, w, h)
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            drawPage(page, bmp)
+            bmp
         }
     }
 
     suspend fun thumbnail(index: Int, widthPx: Int): Bitmap =
         withContext(Dispatchers.Default) { renderToWidth(index, widthPx) }
 
-    private fun drawPage(page: PdfRenderer.Page, w: Int, h: Int): Bitmap {
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    private fun obtainBitmap(w: Int, h: Int, reuse: Bitmap?): Bitmap {
+        if (reuse != null && !reuse.isRecycled && reuse.isMutable &&
+            reuse.width == w && reuse.height == h && reuse.config == Bitmap.Config.ARGB_8888
+        ) {
+            return reuse
+        }
+        reuse?.let { if (!it.isRecycled) it.recycle() }
+        return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    }
+
+    private fun drawPage(page: PdfRenderer.Page, bmp: Bitmap) {
         bmp.eraseColor(Color.WHITE)
         page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-        return bmp
     }
 
     override fun close() = synchronized(this) {

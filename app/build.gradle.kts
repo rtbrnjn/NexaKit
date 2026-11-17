@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
 }
 
 val keystoreProps = Properties().apply {
@@ -19,8 +20,13 @@ android {
         applicationId = "com.mediaforge.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.4.0"
+        versionCode = 8
+        versionName = "1.4.1"
+        testInstrumentationRunner = "com.mediaforge.studio.NexaTestRunner"
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
     signingConfigs {
@@ -122,5 +128,25 @@ dependencies {
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
+    val hiltVersion = "2.60.1"
+    implementation("com.google.dagger:hilt-android:$hiltVersion")
+    ksp("com.google.dagger:hilt-compiler:$hiltVersion")
+
+    testImplementation(composeBom)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.test.ext:junit:1.3.0")
+    testImplementation("org.robolectric:robolectric:4.18")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("com.google.dagger:hilt-android-testing:$hiltVersion")
+    kspTest("com.google.dagger:hilt-compiler:$hiltVersion")
+
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:$hiltVersion")
+    kspAndroidTest("com.google.dagger:hilt-compiler:$hiltVersion")
+
+    debugImplementation(composeBom)
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

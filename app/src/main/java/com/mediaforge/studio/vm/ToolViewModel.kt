@@ -4,8 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.mediaforge.studio.AppContainer
-import com.mediaforge.studio.container
+import com.mediaforge.studio.AppCoordinator
 import com.mediaforge.studio.core.Permissions
 import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.pdf.PdfException
@@ -21,9 +20,11 @@ data class Progress(val label: String, val fraction: Float? = null)
 data class UiMessage(val text: String, val isError: Boolean = false)
 
 /** Shared plumbing: progress, one-shot messages, error handling and result publishing. */
-abstract class ToolViewModel(app: Application) : AndroidViewModel(app) {
+abstract class ToolViewModel(
+    app: Application,
+    private val coordinator: AppCoordinator
+) : AndroidViewModel(app) {
     protected val ctx: Context get() = getApplication()
-    protected val container: AppContainer get() = getApplication<Application>().container
 
     private val _progress = MutableStateFlow<Progress?>(null)
     val progress: StateFlow<Progress?> = _progress
@@ -65,5 +66,5 @@ abstract class ToolViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
-    protected fun publish(files: List<SavedFile>) = container.publish(files)
+    protected fun publish(files: List<SavedFile>) = coordinator.publish(files)
 }

@@ -6,10 +6,10 @@ Designed around an Apple-inspired **True Liquid Glass** aesthetic with real-time
 
 ---
 
-## Download & Install APK (`v1.4.0`)
+## Download & Install APK (`v1.4.1`)
 
-- **Direct Download (`v1.4.0`):** [app-release.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.0/app-release.apk)
-- **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
+- **Direct Download (`v1.4.1`):** [app-release.apk](https://github.com/rtbrnjn/MediaForge-Studio/releases/download/v1.4.1/app-release.apk)
+- **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/MediaForge-Studio/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `app-release.apk` dari halaman Releases di atas.
@@ -18,7 +18,14 @@ Designed around an Apple-inspired **True Liquid Glass** aesthetic with real-time
 
 ---
 
-## What's New in v1.4.0 ("Dual-Engine AI Studio & True Liquid Glass")
+## What's New in v1.4.1 ("Architecture Refactor, Hilt DI & Upload-First Media Flow")
+- **Clean Upload-First Media Lab:** Layar awal Media Lab kini fokus menampilkan area unggah foto bersih tanpa menu bertumpuk — opsi Compressor, Mockup, dan Collage langsung muncul setelah foto dipilih.
+- **Dagger Hilt Dependency Injection & Modular Architecture:** Seluruh ViewModel, DataStore, Room DAO, client AI (`AiRouter`), dan koordinasi Share Target kini diinjeksi via Hilt (`@HiltAndroidApp`, `@AndroidEntryPoint`, `@HiltViewModel`) serta file UI/ViewModel dipecah menjadi modul terfokus.
+- **Optimized On-Device ML Kit OCR:** Re-use `TextRecognizer` dan buffer bitmap adaptif (`1120px`, batas tinggi `2000px`) untuk menekan konsumsi memori saat memindai PDF, lengkap dengan penghentian dini akurat saat batas karakter (`12K` / `30K` / `80K`) tercapai.
+- **Bug Report & Suggestion Menu:** Kartu **"Laporkan Bug atau Kirim Saran"** di Settings mendukung format laporan Markdown otomatis dengan info versi perangkat (tanpa API key) siap dikirim ke GitHub Issues atau disalin.
+- **Automated Compose UI Tests & Unit Tests:** Penambahan Compose UI Test (`NexaKitComposeUiTest` & `NexaKitInstrumentedUiTest`) bersama suite unit test JUnit.
+
+## Highlights in v1.4.0 ("Dual-Engine AI Studio & True Liquid Glass")
 - **Dual-Engine AI Studio (Groq LPU Ultra-Fast + Google Gemini):**
   - Mendukung penuh **Groq REST API** (`https://api.groq.com/openai/v1/chat/completions`) dengan SSE streaming real-time:
     - **PDF Summarizer & Chat:** `llama-3.3-70b-versatile` (respons kilat & akurat).

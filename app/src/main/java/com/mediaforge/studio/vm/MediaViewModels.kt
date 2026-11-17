@@ -4,11 +4,14 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import com.mediaforge.studio.AppCoordinator
 import com.mediaforge.studio.core.BitmapUtils
 import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.core.OutputKind
 import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.core.Storage
+import com.mediaforge.studio.data.SettingsStore
+import com.mediaforge.studio.media.CanvasRatio
 import com.mediaforge.studio.media.CollageAspect
 import com.mediaforge.studio.media.CollageParams
 import com.mediaforge.studio.media.CollageRenderer
@@ -20,13 +23,14 @@ import com.mediaforge.studio.media.MockBackground
 import com.mediaforge.studio.media.MockupParams
 import com.mediaforge.studio.media.MockupRenderer
 import com.mediaforge.studio.media.OutputFormat
-import com.mediaforge.studio.media.CanvasRatio
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -35,11 +39,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import javax.inject.Inject
 
 // =============================================================== Compressor
 
@@ -52,8 +56,13 @@ data class CompressItem(
 )
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-class CompressorViewModel(app: Application) : ToolViewModel(app) {
-    private val compressor = ImageCompressor(app)
+@HiltViewModel
+class CompressorViewModel @Inject constructor(
+    app: Application,
+    coordinator: AppCoordinator,
+    private val settings: SettingsStore,
+    private val compressor: ImageCompressor
+) : ToolViewModel(app, coordinator) {
     private val sizeCache = HashMap<Pair<Uri, CompressOptions>, Long>()
 
     private val _items = MutableStateFlow<List<CompressItem>>(emptyList())
@@ -67,8 +76,8 @@ class CompressorViewModel(app: Application) : ToolViewModel(app) {
 
     init {
         viewModelScope.launch {
-            val defQuality = container.settings.defaultQuality.first()
-            val defStrip = container.settings.autoStripExif.first()
+            val defQuality = settings.defaultQuality.first()
+            val defStrip = settings.autoStripExif.first()
             _options.update { it.copy(quality = defQuality, stripExif = defStrip) }
         }
         viewModelScope.launch {
@@ -136,7 +145,7 @@ class CompressorViewModel(app: Application) : ToolViewModel(app) {
                     before += item.originalBytes
                     after += result.bytes
                     if (opts.stripExif && item.hasGps) gpsRemoved++
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     failed++
                 } finally {
                     tmp.delete()
@@ -144,7 +153,7 @@ class CompressorViewModel(app: Application) : ToolViewModel(app) {
             }
             if (saved.isNotEmpty()) {
                 val delta = (before - after).coerceAtLeast(0L)
-                container.settings.addBytesSaved(delta)
+                settings.addBytesSaved(delta)
                 publish(saved)
                 val metaMsg = when {
                     !opts.stripExif -> " EXIF retained."
@@ -161,7 +170,11 @@ class CompressorViewModel(app: Application) : ToolViewModel(app) {
 // =============================================================== Mockup
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-class MockupViewModel(app: Application) : ToolViewModel(app) {
+@HiltViewModel
+class MockupViewModel @Inject constructor(
+    app: Application,
+    coordinator: AppCoordinator
+) : ToolViewModel(app, coordinator) {
     private val _uri = MutableStateFlow<Uri?>(null)
     val uri: StateFlow<Uri?> = _uri
 
@@ -191,6 +204,12 @@ class MockupViewModel(app: Application) : ToolViewModel(app) {
         }
     }
 
+    fun clear() {
+        _uri.value = null
+        _product.value = null
+        _preview.value = null
+    }
+
     fun update(block: (MockupParams) -> MockupParams) = _params.update(block)
     fun setRatio(r: CanvasRatio) = update { it.copy(ratio = r) }
     fun setBackground(b: MockBackground) = update { it.copy(background = b) }
@@ -214,7 +233,11 @@ class MockupViewModel(app: Application) : ToolViewModel(app) {
 // =============================================================== Collage
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-class CollageViewModel(app: Application) : ToolViewModel(app) {
+@HiltViewModel
+class CollageViewModel @Inject constructor(
+    app: Application,
+    coordinator: AppCoordinator
+) : ToolViewModel(app, coordinator) {
     private val _photos = MutableStateFlow<List<Uri>>(emptyList())
     val photos: StateFlow<List<Uri>> = _photos
 
@@ -248,6 +271,11 @@ class CollageViewModel(app: Application) : ToolViewModel(app) {
     fun setPhotos(uris: List<Uri>) {
         _photos.value = uris.distinct().take(4)
         if (uris.size > 4) showInfo("A collage holds up to 4 photos – the first 4 were used.")
+    }
+
+    fun clear() {
+        _photos.value = emptyList()
+        _preview.value = null
     }
 
     fun remove(i: Int) = _photos.update { l -> l.filterIndexed { idx, _ -> idx != i } }

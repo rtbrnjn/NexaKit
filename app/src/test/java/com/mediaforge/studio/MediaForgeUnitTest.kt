@@ -14,9 +14,12 @@ import com.mediaforge.studio.data.migrateStoredModel
 import com.mediaforge.studio.media.CanvasRatio
 import com.mediaforge.studio.media.MockupRenderer
 import com.mediaforge.studio.pdf.DocxBuilder
+import com.mediaforge.studio.pdf.LocalOcrEngine
 import com.mediaforge.studio.pdf.PdfCompressPreset
 import com.mediaforge.studio.pdf.PdfEngine
 import com.mediaforge.studio.pdf.PdfException
+import com.mediaforge.studio.ui.screens.settings.FeedbackKind
+import com.mediaforge.studio.ui.screens.settings.FeedbackReportFormatter
 import com.mediaforge.studio.vm.ExtractDepth
 import com.mediaforge.studio.vm.SplitPdfViewModel
 import org.junit.Assert.assertEquals
@@ -176,5 +179,47 @@ class MediaForgeUnitTest {
         assertTrue(parsed.caption.contains("comfortable handle"))
         assertEquals(listOf("#coffeemug", "#desksetup", "#ceramic", "#morningcoffee"), parsed.hashtags)
         assertEquals(12_000, ExtractDepth.FAST.maxChars)
+    }
+
+    @Test
+    fun localOcr_truncatesOnlyBeyondLimitAndUsesAdaptiveBudget() {
+        assertEquals(1120, LocalOcrEngine.TARGET_WIDTH_PX)
+        assertEquals(2000, LocalOcrEngine.MAX_HEIGHT_PX)
+
+        val shortText = "Short invoice page"
+        assertEquals(shortText, LocalOcrEngine.truncateIfNeeded(shortText, 100))
+
+        val longText = "A".repeat(150)
+        val truncated = LocalOcrEngine.truncateIfNeeded(longText, 100)
+        assertTrue(truncated.startsWith("A".repeat(100)))
+        assertTrue(truncated.contains("[…OCR truncated at 100 chars]"))
+    }
+
+    @Test
+    fun feedbackFormatter_formatsMarkdownAndGitHubIssueUrl() {
+        val body = FeedbackReportFormatter.formatBody(
+            kind = FeedbackKind.SUGGESTION,
+            category = "Media Lab",
+            title = "Tambah preset Instagram 4:5",
+            detail = "Agar ekspor langsung cocok untuk feed.",
+            includeDeviceInfo = true,
+            appVersion = "NexaKit v1.4.1 (Build 8)",
+            deviceInfo = "Pixel Test • Android 14 (API 34)"
+        )
+        assertTrue(body.contains("### Saran Fitur (Media Lab)"))
+        assertTrue(body.contains("NexaKit v1.4.1 (Build 8)"))
+        assertTrue(body.contains("Pixel Test"))
+
+        val url = FeedbackReportFormatter.buildGitHubIssueUrl(
+            kind = FeedbackKind.BUG,
+            category = "PDF Suite",
+            title = "Crash saat merge",
+            detail = "Terjadi pada file besar",
+            includeDeviceInfo = false,
+            deviceInfo = "Ignored"
+        )
+        assertTrue(url.startsWith("https://github.com/rtbrnjn/MediaForge-Studio/issues/new?"))
+        assertTrue(url.contains("labels=bug"))
+        assertTrue(url.contains("Crash"))
     }
 }
