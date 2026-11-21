@@ -71,23 +71,24 @@ val LocalBackdropHazeState = compositionLocalOf<HazeState?> { null }
 @Composable
 fun diagonalGlassBorder(isDark: Boolean = Glass.IsDark, strong: Boolean = false): Brush {
     val startAlpha = when {
-        isDark && strong -> 0.42f
-        isDark -> 0.35f
-        strong -> 0.95f
-        else -> 0.88f
+        isDark && strong -> 0.22f
+        isDark -> 0.14f
+        strong -> 0.92f
+        else -> 0.72f
     }
-    val endAlpha = if (isDark) 0.06f else 0.16f
+    val endAlpha = if (isDark) 0.10f else 0.16f
+    val startColor = if (isDark) Color.White else Color(0xFFCBD5E1)
     val endColor = if (isDark) Color.White else Color(0xFF94A3B8)
     return remember(isDark, strong) {
         Brush.linearGradient(
-            colors = listOf(Color.White.copy(alpha = startAlpha), endColor.copy(alpha = endAlpha)),
+            colors = listOf(startColor.copy(alpha = startAlpha), endColor.copy(alpha = endAlpha)),
             start = Offset.Zero,
             end = Offset.Infinite
         )
     }
 }
 
-// ------------------------------------------------------------------ Breathing Ambient Mesh Backdrop
+// ------------------------------------------------------------------ Minimal Monochrome Ambient Backdrop
 
 @Composable
 fun LiquidGlassBackdrop(
@@ -103,29 +104,21 @@ fun LiquidGlassBackdrop(
     val driftA by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(15_000, easing = LinearEasing), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(22_000, easing = LinearEasing), RepeatMode.Reverse),
         label = "blobA"
     )
     val driftB by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(19_000, easing = LinearEasing), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(26_000, easing = LinearEasing), RepeatMode.Reverse),
         label = "blobB"
     )
-    val driftC by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(23_000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "blobC"
-    )
 
-    val sapphire = if (isDark) Color(0xFF2563EB) else Color(0xFF7DD3FC)
-    val emerald = if (isDark) Color(0xFF10B981) else Color(0xFF6EE7B7)
-    val indigo = if (isDark) Color(0xFF6366F1) else Color(0xFFA5B4FC)
+    val glowPrimary = if (isDark) Color.White else Color.White
+    val glowSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFFCBD5E1)
 
-    val alphaA = if (isDark) (0.26f + 0.06f * driftA) else (0.32f + 0.06f * driftA)
-    val alphaB = if (isDark) (0.22f + 0.06f * driftB) else (0.28f + 0.06f * driftB)
-    val alphaC = if (isDark) (0.17f + 0.05f * driftC) else (0.20f + 0.05f * driftC)
+    val alphaA = if (isDark) (0.032f + 0.012f * driftA) else (0.50f + 0.08f * driftA)
+    val alphaB = if (isDark) (0.025f + 0.010f * driftB) else (0.18f + 0.05f * driftB)
 
     Box(modifier.fillMaxSize()) {
         Box(
@@ -137,23 +130,17 @@ fun LiquidGlassBackdrop(
                 .drawBehind {
                     val w = size.width
                     val h = size.height
-                    val centerA = Offset(w * (0.20f + 0.08f * driftA), h * (0.24f + 0.05f * driftB))
+                    val centerA = Offset(w * (0.24f + 0.06f * driftA), h * (0.18f + 0.04f * driftB))
                     drawCircle(
-                        brush = Brush.radialGradient(listOf(sapphire.copy(alpha = alphaA), Color.Transparent), centerA, w * 0.78f),
+                        brush = Brush.radialGradient(listOf(glowPrimary.copy(alpha = alphaA), Color.Transparent), centerA, w * 0.80f),
                         center = centerA,
-                        radius = w * 0.78f
+                        radius = w * 0.80f
                     )
-                    val centerB = Offset(w * (0.82f - 0.08f * driftB), h * (0.44f + 0.07f * driftA))
+                    val centerB = Offset(w * (0.78f - 0.06f * driftB), h * (0.72f - 0.05f * driftA))
                     drawCircle(
-                        brush = Brush.radialGradient(listOf(emerald.copy(alpha = alphaB), Color.Transparent), centerB, w * 0.72f),
+                        brush = Brush.radialGradient(listOf(glowSecondary.copy(alpha = alphaB), Color.Transparent), centerB, w * 0.74f),
                         center = centerB,
-                        radius = w * 0.72f
-                    )
-                    val centerC = Offset(w * (0.34f + 0.12f * driftC), h * (0.84f - 0.06f * driftB))
-                    drawCircle(
-                        brush = Brush.radialGradient(listOf(indigo.copy(alpha = alphaC), Color.Transparent), centerC, w * 0.68f),
-                        center = centerC,
-                        radius = w * 0.68f
+                        radius = w * 0.74f
                     )
                 }
         )
@@ -277,13 +264,10 @@ fun <T> GlassSegmentedBar(
     val selectedIndex = items.indexOf(selected).coerceAtLeast(0)
 
     val pillFill = remember(isDark) {
-        if (isDark) {
-            Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.22f), Color(0xFF93C5FD).copy(alpha = 0.22f)))
-        } else {
-            Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.92f), Color.White.copy(alpha = 0.80f)))
-        }
+        if (isDark) Color.White.copy(alpha = 0.14f)
+        else Color.White.copy(alpha = 0.90f)
     }
-    val pillBorder = diagonalGlassBorder(isDark = isDark, strong = true)
+    val pillBorder = if (isDark) Color.White.copy(alpha = 0.16f) else Color(0xFF0F172A).copy(alpha = 0.10f)
 
     BoxWithConstraints(
         modifier
@@ -404,20 +388,11 @@ fun LiquidGlassCard(
     m = m.drawBehind {
         drawRect(
             Brush.verticalGradient(
-                colors = listOf(Color.White.copy(alpha = if (isDark) 0.11f else 0.45f), Color.Transparent),
+                colors = listOf(Color.White.copy(alpha = if (isDark) 0.05f else 0.35f), Color.Transparent),
                 startY = 0f,
-                endY = 20.dp.toPx()
+                endY = 16.dp.toPx()
             )
         )
-        if (accent != null) {
-            drawRect(
-                Brush.radialGradient(
-                    colors = listOf(accent.copy(alpha = if (isDark) 0.14f else 0.10f), Color.Transparent),
-                    center = Offset(size.width * 0.5f, 0f),
-                    radius = size.width * 0.85f
-                )
-            )
-        }
     }.border(1.dp, borderBrush, shape)
 
     if (onClick != null) {

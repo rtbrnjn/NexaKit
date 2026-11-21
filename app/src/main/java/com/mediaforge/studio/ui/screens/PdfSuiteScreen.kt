@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.rounded.TextSnippet
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ContentCut
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Lock
@@ -63,6 +64,7 @@ import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
 import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.screens.pdf.CompressPdfScreen
+import com.mediaforge.studio.ui.screens.pdf.DocumentScannerScreen
 import com.mediaforge.studio.ui.screens.pdf.EditPdfScreen
 import com.mediaforge.studio.ui.screens.pdf.ImagesToPdfScreen
 import com.mediaforge.studio.ui.screens.pdf.MergePdfScreen
@@ -76,6 +78,7 @@ import com.mediaforge.studio.ui.screens.pdf.UnlockPdfScreen
 import com.mediaforge.studio.ui.screens.pdf.WatermarkPdfScreen
 import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.CompressPdfViewModel
+import com.mediaforge.studio.vm.DocumentScannerViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
 import com.mediaforge.studio.vm.MergePdfViewModel
@@ -97,6 +100,7 @@ enum class PdfTool(
     val icon: ImageVector,
     private val tone: ToolTone
 ) {
+    SCAN_DOCUMENT("Scan Document", "Auto-crop paper to PDF/JPG", Icons.Rounded.DocumentScanner, ToolTone.PRIMARY),
     PDF_TO_WORD("PDF to Word", "Extract text to .docx", Icons.Rounded.Description, ToolTone.PRIMARY),
     WORD_TO_PDF("Word to PDF", ".docx, Markdown or text", Icons.AutoMirrored.Rounded.TextSnippet, ToolTone.SECONDARY),
     IMAGES_TO_PDF("Images to PDF", "Photos to A4 or fit PDF", Icons.Rounded.PictureAsPdf, ToolTone.PRIMARY),
@@ -120,6 +124,7 @@ enum class PdfTool(
 
 @Composable
 fun PdfSuiteScreen(
+    scannerVm: DocumentScannerViewModel = viewModel(),
     pdfToDocxVm: PdfToDocxViewModel = viewModel(),
     textToPdfVm: TextToPdfViewModel = viewModel(),
     imagesToPdfVm: ImagesToPdfViewModel = viewModel(),
@@ -156,6 +161,7 @@ fun PdfSuiteScreen(
     ) { tool ->
         when (tool) {
             null -> PdfHubGrid(onSelect = { activeTool = it })
+            PdfTool.SCAN_DOCUMENT -> DocumentScannerScreen(scannerVm, onBack = { activeTool = null })
             PdfTool.PDF_TO_WORD -> PdfToDocxScreen(pdfToDocxVm, onBack = { activeTool = null })
             PdfTool.WORD_TO_PDF -> TextToPdfScreen(textToPdfVm, onBack = { activeTool = null })
             PdfTool.IMAGES_TO_PDF -> ImagesToPdfScreen(imagesToPdfVm, onBack = { activeTool = null })
@@ -218,8 +224,8 @@ private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
         }
 
         LiquidGlassTopHeader(
-            title = "NexaKit · PDF Suite",
-            subtitle = "12 Offline Tools • On-Device Only",
+            title = "DocPix · PDF Suite",
+            subtitle = "13 Offline Tools • On-Device Only",
             hazeState = chromeHaze,
             modifier = Modifier
                 .align(Alignment.TopCenter)

@@ -20,8 +20,8 @@ android {
         applicationId = "com.mediaforge.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.4.1"
+        versionCode = 9
+        versionName = "1.4.2"
         testInstrumentationRunner = "com.mediaforge.studio.NexaTestRunner"
     }
 
@@ -70,7 +70,7 @@ android {
     buildFeatures {
         compose = true
         aidl = false
-        buildConfig = false
+        buildConfig = true
         shaders = false
     }
 
@@ -127,6 +127,7 @@ dependencies {
 
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
 
     val hiltVersion = "2.60.1"
     implementation("com.google.dagger:hilt-android:$hiltVersion")

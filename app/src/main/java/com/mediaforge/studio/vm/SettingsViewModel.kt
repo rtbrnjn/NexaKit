@@ -4,18 +4,22 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mediaforge.studio.BuildConfig
 import com.mediaforge.studio.ai.AiPreference
 import com.mediaforge.studio.ai.GeminiClient
 import com.mediaforge.studio.ai.GeminiException
 import com.mediaforge.studio.ai.GroqClient
 import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.core.SavedFile
+import com.mediaforge.studio.data.AppUpdateInfo
 import com.mediaforge.studio.data.Connectivity
 import com.mediaforge.studio.data.DEFAULT_MODEL
 import com.mediaforge.studio.data.DEFAULT_MODELS
 import com.mediaforge.studio.data.HistoryStore
 import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.data.ThemeMode
+import com.mediaforge.studio.data.UpdateCheckResult
+import com.mediaforge.studio.data.UpdateChecker
 import com.mediaforge.studio.data.db.AiHistoryDao
 import com.mediaforge.studio.data.db.AiHistoryEntity
 import com.mediaforge.studio.pdf.PdfPageMode
@@ -58,7 +62,8 @@ class SettingsViewModel @Inject constructor(
     private val historyStore: HistoryStore,
     connectivity: Connectivity,
     private val gemini: GeminiClient,
-    private val groq: GroqClient
+    private val groq: GroqClient,
+    private val updateChecker: UpdateChecker
 ) : AndroidViewModel(app) {
 
     val keyInput = MutableStateFlow("")
@@ -95,6 +100,18 @@ class SettingsViewModel @Inject constructor(
 
     private val _cacheBytes = MutableStateFlow(0L)
     val cacheBytes: StateFlow<Long> = _cacheBytes
+
+    private val _checkingUpdate = MutableStateFlow(false)
+    val checkingUpdate: StateFlow<Boolean> = _checkingUpdate
+
+    private val _availableUpdate = MutableStateFlow<AppUpdateInfo?>(null)
+    val availableUpdate: StateFlow<AppUpdateInfo?> = _availableUpdate
+
+    private val _showUpdateDialog = MutableStateFlow(false)
+    val showUpdateDialog: StateFlow<Boolean> = _showUpdateDialog
+
+    private val _updateStatus = MutableStateFlow<String?>(null)
+    val updateStatus: StateFlow<String?> = _updateStatus
 
     init {
         viewModelScope.launch {
@@ -228,4 +245,38 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun clearHistory() { viewModelScope.launch { historyStore.clear() } }
+
+    fun checkForUpdates(userInitiated: Boolean = false) {
+        if (_checkingUpdate.value) return
+        viewModelScope.launch {
+            _checkingUpdate.value = true
+            if (userInitiated) _updateStatus.value = "Memeriksa pembaruan…"
+            when (val res = updateChecker.checkForUpdate(BuildConfig.VERSION_NAME)) {
+                is UpdateCheckResult.Available -> {
+                    _availableUpdate.value = res.info
+                    _showUpdateDialog.value = true
+                    _updateStatus.value = "Tersedia pembaruan ${res.info.tagName}."
+                }
+                is UpdateCheckResult.UpToDate -> {
+                    if (userInitiated) {
+                        _updateStatus.value = "Sudah versi terbaru (v${res.currentVersion})."
+                    }
+                }
+                is UpdateCheckResult.Error -> {
+                    if (userInitiated) {
+                        _updateStatus.value = "Gagal cek pembaruan: ${res.message}"
+                    }
+                }
+            }
+            _checkingUpdate.value = false
+        }
+    }
+
+    fun openUpdateDialog() {
+        if (_availableUpdate.value != null) _showUpdateDialog.value = true
+    }
+
+    fun dismissUpdateDialog() {
+        _showUpdateDialog.value = false
+    }
 }

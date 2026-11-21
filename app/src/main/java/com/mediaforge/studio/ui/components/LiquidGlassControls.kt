@@ -70,35 +70,28 @@ fun LiquidGlassPill(
         label = "pillBtn"
     )
 
-    val borderBrush = diagonalGlassBorder(isDark = isDark, strong = primary)
-    val primaryBrush = remember(isDark) {
-        if (isDark) {
-            Brush.horizontalGradient(
-                listOf(
-                    Color(0xFF38BDF8).copy(alpha = 0.34f),
-                    Color(0xFF6366F1).copy(alpha = 0.30f),
-                    Color(0xFF10B981).copy(alpha = 0.32f)
-                )
-            )
-        } else {
-            Brush.horizontalGradient(listOf(Color(0xFF0284C7), Color(0xFF059669)))
-        }
+    val borderBrush = if (isDark) Color.White.copy(alpha = if (primary) 0.20f else 0.12f)
+    else Color(0xFF0F172A).copy(alpha = if (primary) 0.16f else 0.09f)
+    val primaryFill = if (isDark) Color(0xFFF1F5F9) else Color(0xFF111827)
+    val contentColor = if (primary) {
+        if (isDark) Color(0xFF0B0E13) else Color.White
+    } else {
+        Glass.TextPrimary
     }
-    val contentColor = if (primary) Color.White else Glass.TextPrimary
 
     Row(
         modifier
             .graphicsLayer { scaleX = scale; scaleY = scale; alpha = if (enabled) 1f else 0.44f }
             .height(if (compact) 40.dp else 52.dp)
             .shadow(
-                elevation = if (primary) (if (isDark) 10.dp else 6.dp) else 0.dp,
+                elevation = if (primary) (if (isDark) 4.dp else 4.dp) else 0.dp,
                 shape = shape,
-                ambientColor = if (primary) Glass.Cyan.copy(alpha = 0.35f) else Color.Transparent,
-                spotColor = if (primary) Glass.Cyan.copy(alpha = 0.35f) else Color.Transparent
+                ambientColor = Color.Black.copy(alpha = if (isDark) 0.25f else 0.10f),
+                spotColor = Color.Black.copy(alpha = if (isDark) 0.25f else 0.10f)
             )
             .clip(shape)
             .then(
-                if (primary) Modifier.background(primaryBrush).border(1.dp, borderBrush, shape)
+                if (primary) Modifier.background(primaryFill).border(1.dp, borderBrush, shape)
                 else Modifier.background(Glass.CardFill).border(1.dp, borderBrush, shape)
             )
             .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)

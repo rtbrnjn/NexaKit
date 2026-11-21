@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.AutoAwesomeMosaic
 import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.FilterFrames
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
@@ -54,7 +55,8 @@ import dev.chrisbanes.haze.hazeSource
 internal fun MediaUploadWelcome(
     topPadding: Dp,
     hazeState: HazeState?,
-    onPickPhotos: () -> Unit
+    onPickPhotos: () -> Unit,
+    onScanDocument: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -115,6 +117,14 @@ internal fun MediaUploadWelcome(
                 )
             }
         }
+
+        MediaActionRowCard(
+            title = "Scan Dokumen (Kamera)",
+            subtitle = "Auto-crop kertas, filter bersih & simpan ke PDF atau Gambar JPG",
+            icon = Icons.Rounded.DocumentScanner,
+            accent = Glass.Cyan,
+            onClick = onScanDocument
+        )
 
         Hint("100% diproses luring di perangkat • Privasi EXIF/GPS terjaga")
     }

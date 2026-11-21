@@ -27,9 +27,12 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
@@ -51,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mediaforge.studio.BuildConfig
 import com.mediaforge.studio.ai.AiEngine
 import com.mediaforge.studio.ai.AiPreference
 import com.mediaforge.studio.ai.AiRouting
@@ -111,6 +115,9 @@ fun SettingsScreen(vm: SettingsViewModel) {
     val cacheBytes by vm.cacheBytes.collectAsState()
     val history by vm.history.collectAsState()
     val online by vm.online.collectAsState()
+    val checkingUpdate by vm.checkingUpdate.collectAsState()
+    val availableUpdate by vm.availableUpdate.collectAsState()
+    val updateStatus by vm.updateStatus.collectAsState()
 
     var showGuideSheet by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -425,20 +432,50 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 }
             }
 
-            // ------------------------------------------------------------------ 6. About NexaKit
+            // ------------------------------------------------------------------ 6. About DocPix & Updates
             GlassCard(Modifier.fillMaxWidth()) {
-                SectionLabel("About NexaKit")
+                SectionLabel("About DocPix")
                 Spacer(Modifier.height(6.dp))
-                Text("NexaKit v1.4.1 (Build 8)", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                Text("DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                 Spacer(Modifier.height(4.dp))
-                Hint("True Liquid Glass Edition • Hilt DI • Dual-Engine Groq LPU + Gemini 3.8 SSE • Optimized ML Kit OCR • Offline Media & 12-Tool PDF Suite • Bug & Feedback Menu.")
+                Hint("Monochrome Liquid Glass Edition • Hilt DI • ML Kit Document Scanner • Dual-Engine Groq LPU + Gemini 3.8 SSE • Optimized ML Kit OCR • Offline Media & 13-Tool PDF Suite.")
                 Spacer(Modifier.height(6.dp))
                 Text("Package: com.mediaforge.studio", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    GlassButton(
+                        text = if (checkingUpdate) "Memeriksa…" else "Cek Pembaruan",
+                        icon = if (checkingUpdate) Icons.Rounded.Refresh else Icons.Rounded.SystemUpdate,
+                        primary = availableUpdate == null,
+                        compact = true,
+                        enabled = !checkingUpdate,
+                        onClick = { vm.checkForUpdates(userInitiated = true) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (availableUpdate != null) {
+                        GlassButton(
+                            text = "Update ${availableUpdate!!.tagName}",
+                            icon = Icons.Rounded.Download,
+                            primary = true,
+                            compact = true,
+                            onClick = vm::openUpdateDialog,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                if (!updateStatus.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Hint(updateStatus!!)
+                }
             }
         }
 
         LiquidGlassTopHeader(
-            title = "NexaKit · Settings",
+            title = "DocPix · Settings",
             hazeState = chromeHaze,
             modifier = Modifier
                 .align(Alignment.TopCenter)

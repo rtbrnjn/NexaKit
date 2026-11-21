@@ -138,7 +138,7 @@ fun GeminiAiScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             LiquidGlassTopHeader(
-                title = "NexaKit · AI Studio",
+                title = "DocPix · AI Studio",
                 subtitle = if (!aiReady) "Add Groq or Gemini API key in Settings"
                 else if (groqKey.isNotBlank() && geminiKey.isNotBlank()) "$engineBadge • Auto-Fallback"
                 else "$engineBadge • SSE Streaming",

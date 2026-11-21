@@ -10,6 +10,10 @@ captures/
 .externalNativeBuild/
 .cxx/
 
+# Release / build binaries
+*.apk
+*.aab
+
 # Signing keys & secrets (never commit to version control)
 *.jks
 *.keystore

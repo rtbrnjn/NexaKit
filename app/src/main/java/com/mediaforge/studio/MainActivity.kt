@@ -76,9 +76,9 @@ import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.ui.components.LiquidGlassBackdrop
 import com.mediaforge.studio.ui.components.LocalBackdropHazeState
 import com.mediaforge.studio.ui.components.LocalHazeState
-import com.mediaforge.studio.ui.components.diagonalGlassBorder
 import com.mediaforge.studio.ui.components.liquidGlassChrome
 import com.mediaforge.studio.ui.screens.AiTool
+import com.mediaforge.studio.ui.screens.AppUpdateDialog
 import com.mediaforge.studio.ui.screens.GeminiAiScreen
 import com.mediaforge.studio.ui.screens.MediaLabScreen
 import com.mediaforge.studio.ui.screens.MediaTool
@@ -95,6 +95,7 @@ import com.mediaforge.studio.vm.CollageViewModel
 import com.mediaforge.studio.vm.CompressPdfViewModel
 import com.mediaforge.studio.vm.CompressorViewModel
 import com.mediaforge.studio.vm.CopywriterViewModel
+import com.mediaforge.studio.vm.DocumentScannerViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
 import com.mediaforge.studio.vm.MergePdfViewModel
@@ -197,6 +198,7 @@ private fun MediaForgeRoot(
     val compressorVm: CompressorViewModel = viewModel()
     val mockupVm: MockupViewModel = viewModel()
     val collageVm: CollageViewModel = viewModel()
+    val scannerVm: DocumentScannerViewModel = viewModel()
     val pdfToDocxVm: PdfToDocxViewModel = viewModel()
     val textToPdfVm: TextToPdfViewModel = viewModel()
     val imagesToPdfVm: ImagesToPdfViewModel = viewModel()
@@ -220,6 +222,8 @@ private fun MediaForgeRoot(
     val results by coordinator.results.collectAsState()
     val incomingShare by coordinator.incomingShare.collectAsState()
     val shareDispatch by coordinator.shareDispatch.collectAsState()
+    val showUpdateDialog by settingsVm.showUpdateDialog.collectAsState()
+    val availableUpdate by settingsVm.availableUpdate.collectAsState()
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         scope.launch { settings.setPermissionAsked(true) }
@@ -230,6 +234,7 @@ private fun MediaForgeRoot(
         if (!alreadyAsked && !Permissions.granted(ctx)) {
             permLauncher.launch(Permissions.required())
         }
+        settingsVm.checkForUpdates(userInitiated = false)
     }
 
     fun navigateTo(tab: TopTab) {
@@ -338,11 +343,16 @@ private fun MediaForgeRoot(
                             mockupVm = mockupVm,
                             collageVm = collageVm,
                             requestedTool = requestedMediaTool,
-                            onToolHandled = { requestedMediaTool = null }
+                            onToolHandled = { requestedMediaTool = null },
+                            onScanDocument = {
+                                requestedPdfTool = PdfTool.SCAN_DOCUMENT
+                                navigateTo(TopTab.PDF_SUITE)
+                            }
                         )
                     }
                     composable(TopTab.PDF_SUITE.route) {
                         PdfSuiteScreen(
+                            scannerVm = scannerVm,
                             pdfToDocxVm = pdfToDocxVm,
                             textToPdfVm = textToPdfVm,
                             imagesToPdfVm = imagesToPdfVm,
@@ -393,6 +403,13 @@ private fun MediaForgeRoot(
                 files = results,
                 onDismiss = coordinator::dismissResults
             )
+
+            if (showUpdateDialog) {
+                AppUpdateDialog(
+                    update = availableUpdate,
+                    onDismiss = settingsVm::dismissUpdateDialog
+                )
+            }
         }
     }
 }
@@ -409,17 +426,10 @@ private fun LiquidGlassBottomBar(
     val pillShape = RoundedCornerShape(22.dp)
 
     val pillFill = remember(isDark) {
-        if (isDark) {
-            Brush.horizontalGradient(
-                listOf(Color.White.copy(alpha = 0.19f), Color(0xFF93C5FD).copy(alpha = 0.16f))
-            )
-        } else {
-            Brush.horizontalGradient(
-                listOf(Color.White.copy(alpha = 0.90f), Color(0xFFE0F2FE).copy(alpha = 0.72f))
-            )
-        }
+        if (isDark) Color.White.copy(alpha = 0.14f)
+        else Color.White.copy(alpha = 0.90f)
     }
-    val pillBorder = diagonalGlassBorder(isDark = isDark, strong = true)
+    val pillBorder = if (isDark) Color.White.copy(alpha = 0.16f) else Color(0xFF0F172A).copy(alpha = 0.10f)
 
     BoxWithConstraints(
         modifier
@@ -468,7 +478,7 @@ private fun LiquidGlassBottomBar(
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = if (selected) (if (isDark) Color.White else Glass.Cyan) else Glass.TextSecondary,
+                            tint = if (selected) Glass.TextPrimary else Glass.TextSecondary,
                             modifier = Modifier.size(21.dp)
                         )
                         Spacer(Modifier.height(3.dp))

@@ -7,9 +7,11 @@ import com.mediaforge.studio.ai.GeminiException
 import com.mediaforge.studio.ai.GroqClient
 import com.mediaforge.studio.ai.ProductCopy
 import com.mediaforge.studio.core.FileUtils
+import com.mediaforge.studio.core.Storage
 import com.mediaforge.studio.data.DEFAULT_MODEL
 import com.mediaforge.studio.data.RECOMMENDED_MODELS
 import com.mediaforge.studio.data.ThemeMode
+import com.mediaforge.studio.data.UpdateChecker
 import com.mediaforge.studio.data.migrateStoredModel
 import com.mediaforge.studio.media.CanvasRatio
 import com.mediaforge.studio.media.MockupRenderer
@@ -203,11 +205,11 @@ class MediaForgeUnitTest {
             title = "Tambah preset Instagram 4:5",
             detail = "Agar ekspor langsung cocok untuk feed.",
             includeDeviceInfo = true,
-            appVersion = "NexaKit v1.4.1 (Build 8)",
+            appVersion = "DocPix v1.4.2 (Build 9)",
             deviceInfo = "Pixel Test • Android 14 (API 34)"
         )
         assertTrue(body.contains("### Saran Fitur (Media Lab)"))
-        assertTrue(body.contains("NexaKit v1.4.1 (Build 8)"))
+        assertTrue(body.contains("DocPix v1.4.2 (Build 9)"))
         assertTrue(body.contains("Pixel Test"))
 
         val url = FeedbackReportFormatter.buildGitHubIssueUrl(
@@ -218,8 +220,21 @@ class MediaForgeUnitTest {
             includeDeviceInfo = false,
             deviceInfo = "Ignored"
         )
-        assertTrue(url.startsWith("https://github.com/rtbrnjn/MediaForge-Studio/issues/new?"))
+        assertTrue(url.startsWith("https://github.com/rtbrnjn/NexaKit/issues/new?"))
         assertTrue(url.contains("labels=bug"))
         assertTrue(url.contains("Crash"))
+    }
+
+    @Test
+    fun docPixBrandingAndUpdateVersionComparison_behaveCorrectly() {
+        assertEquals("DocPix", Storage.ROOT)
+
+        assertTrue(UpdateChecker.isNewerVersion("v1.4.3", "1.4.2"))
+        assertTrue(UpdateChecker.isNewerVersion("v2.0.0", "1.4.9"))
+        assertTrue(UpdateChecker.isNewerVersion("1.4.2.1", "1.4.2"))
+        assertTrue(UpdateChecker.isNewerVersion("v1.5.0-rc1", "1.4.2"))
+        assertFalse(UpdateChecker.isNewerVersion("v1.4.2", "1.4.2"))
+        assertFalse(UpdateChecker.isNewerVersion("v1.4.1", "1.4.2"))
+        assertFalse(UpdateChecker.isNewerVersion("", "1.4.2"))
     }
 }

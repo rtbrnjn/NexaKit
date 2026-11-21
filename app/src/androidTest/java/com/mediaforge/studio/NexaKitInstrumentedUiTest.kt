@@ -30,14 +30,14 @@ class NexaKitInstrumentedUiTest {
 
     @Test
     fun mainNavigationAndSettingsFeedbackSheet_displayCleanlyOnDevice() {
-        composeRule.onNodeWithText("NexaKit · Media Lab").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · Media Lab").assertIsDisplayed()
         composeRule.onNodeWithText("Unggah Foto untuk Memulai").assertIsDisplayed()
 
         composeRule.onNodeWithText("PDF Suite").performClick()
-        composeRule.onNodeWithText("NexaKit · PDF Suite").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
 
         composeRule.onNodeWithText("AI Studio").performClick()
-        composeRule.onNodeWithText("NexaKit · AI Studio").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
 
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("Dual-Engine AI Vault").assertIsDisplayed()

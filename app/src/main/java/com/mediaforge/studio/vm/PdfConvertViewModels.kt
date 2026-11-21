@@ -52,7 +52,7 @@ class PdfToDocxViewModel @Inject constructor(
                 PdfEngine.pdfToDocx(src.file, breaks, out) { setProgress("Extracting text…", it) }
             }
             publish(listOf(saved))
-            showInfo("Word document saved to Documents/NexaKit (${FileUtils.formatBytes(saved.sizeBytes)}).")
+            showInfo("Word document saved to Documents/DocPix (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 }
@@ -225,7 +225,7 @@ class PdfToImagesViewModel @Inject constructor(
                 }
             }
             publish(saved)
-            showInfo("${saved.size} image(s) saved to Pictures/NexaKit/PDF_Export.")
+            showInfo("${saved.size} image(s) saved to Pictures/DocPix/PDF_Export.")
         }
     }
 }

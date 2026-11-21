@@ -56,30 +56,33 @@ class NexaKitMainNavigationUiTest {
 
     @Test
     fun bottomBarUploadFirstFlowAndFeedbackSheet_workEndToEnd() {
-        // 1. Starts on clean upload-first Media Lab without tool menu clutter
-        composeRule.onNodeWithText("NexaKit · Media Lab").assertIsDisplayed()
+        // 1. Starts on clean upload-first Media Lab without tool menu clutter (includes Document Scanner shortcut)
+        composeRule.onNodeWithText("DocPix · Media Lab").assertIsDisplayed()
         composeRule.onNodeWithText("Unggah Foto untuk Memulai").assertIsDisplayed()
         composeRule.onNodeWithText("Pilih Foto dari Galeri").assertIsDisplayed()
+        composeRule.onNodeWithText("Scan Dokumen (Kamera)").assertIsDisplayed()
         composeRule.onNodeWithText("Compression Settings").assertDoesNotExist()
 
-        // 2. Navigate to PDF Suite, open Merge PDFs, then navigate back to Hub
+        // 2. Navigate to PDF Suite, check Scan Document card, open Merge PDFs, then navigate back to Hub
         composeRule.onNodeWithText("PDF Suite").performClick()
-        composeRule.onNodeWithText("NexaKit · PDF Suite").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
+        composeRule.onNodeWithText("Scan Document").assertIsDisplayed()
         composeRule.onNodeWithText("Merge PDFs").performScrollTo().performClick()
         composeRule.onNodeWithText("Add PDF Files").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
-        composeRule.onNodeWithText("NexaKit · PDF Suite").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
 
         // 3. Navigate to AI Studio and switch to AI Vault tab
         composeRule.onNodeWithText("AI Studio").performClick()
-        composeRule.onNodeWithText("NexaKit · AI Studio").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
         composeRule.onNodeWithText("AI Vault").performClick()
         composeRule.onNodeWithText("AI History Vault is empty").assertIsDisplayed()
 
-        // 4. Navigate to Settings, open Interactive API Key Guide, then Bug/Feedback Sheet
+        // 4. Navigate to Settings, verify About DocPix + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
-        composeRule.onNodeWithText("NexaKit · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("NexaKit v1.4.1 (Build 8)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.2 (Build 9)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithText("Cara Mendapatkan API Key Gratis?").performScrollTo().performClick()
         composeRule.onNodeWithText("Cara Mendapatkan API Key Gratis").assertIsDisplayed()
@@ -122,7 +125,7 @@ class LiquidGlassComponentsUiTest {
                     LiquidGlassBackdrop {
                         Column {
                             LiquidGlassTopHeader(
-                                title = "NexaKit · UI Check",
+                                title = "DocPix · UI Check",
                                 subtitle = "Active: ${selectedTab.label}",
                                 trailing = {
                                     if (selectedTab == DemoTab.FIRST) {
@@ -148,12 +151,44 @@ class LiquidGlassComponentsUiTest {
             }
         }
 
-        composeRule.onNodeWithText("NexaKit · UI Check").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix · UI Check").assertIsDisplayed()
         composeRule.onNodeWithText("Active: Groq").assertIsDisplayed()
         composeRule.onNodeWithText("Groq LPU Ready").assertIsDisplayed()
 
         composeRule.onNodeWithText("Gemini").performClick()
         composeRule.onNodeWithText("Active: Gemini").assertIsDisplayed()
         composeRule.onNodeWithText("Offline Mode").assertIsDisplayed()
+    }
+
+    @Test
+    fun storagePathsAndGithubUpdateParser_resolveDocPixCorrectly() {
+        val docPath = com.mediaforge.studio.core.Storage.folderPath(com.mediaforge.studio.core.OutputKind.DOCUMENT)
+        val imgPath = com.mediaforge.studio.core.Storage.folderPath(com.mediaforge.studio.core.OutputKind.IMAGE)
+        org.junit.Assert.assertTrue(docPath.endsWith("/DocPix"))
+        org.junit.Assert.assertTrue(imgPath.endsWith("/DocPix"))
+
+        val releaseJson = """
+            {
+              "tag_name": "v1.5.0",
+              "name": "DocPix v1.5.0",
+              "body": "- Faster Document Scanner\n- Improved monochrome glass",
+              "html_url": "https://github.com/rtbrnjn/DocPix/releases/tag/v1.5.0",
+              "assets": [
+                {
+                  "name": "app-release.apk",
+                  "browser_download_url": "https://example.com/app-release.apk"
+                },
+                {
+                  "name": "DocPix.apk",
+                  "browser_download_url": "https://example.com/DocPix.apk"
+                }
+              ]
+            }
+        """.trimIndent()
+        val parsed = com.mediaforge.studio.data.UpdateChecker.parseReleaseJson(releaseJson)
+        org.junit.Assert.assertEquals("v1.5.0", parsed?.tagName)
+        org.junit.Assert.assertEquals("1.5.0", parsed?.versionName)
+        org.junit.Assert.assertEquals("https://example.com/DocPix.apk", parsed?.apkDownloadUrl)
+        org.junit.Assert.assertEquals("https://github.com/rtbrnjn/DocPix/releases/tag/v1.5.0", parsed?.htmlUrl)
     }
 }

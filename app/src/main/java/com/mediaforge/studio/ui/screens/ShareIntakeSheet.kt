@@ -82,7 +82,7 @@ fun ShareIntakeSheet(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Open with NexaKit", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                    Text("Open with DocPix", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                     val summary = buildList {
                         if (share.images.isNotEmpty()) add("${share.images.size} image(s)")
                         if (share.pdfs.isNotEmpty()) add("${share.pdfs.size} PDF(s)")

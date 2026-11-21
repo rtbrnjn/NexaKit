@@ -74,7 +74,8 @@ fun MediaLabScreen(
     mockupVm: MockupViewModel = viewModel(),
     collageVm: CollageViewModel = viewModel(),
     requestedTool: MediaTool? = null,
-    onToolHandled: () -> Unit = {}
+    onToolHandled: () -> Unit = {},
+    onScanDocument: () -> Unit = {}
 ) {
     var active by rememberSaveable { mutableStateOf<MediaTool?>(null) }
     val chromeHaze = LocalHazeState.current
@@ -158,7 +159,8 @@ fun MediaLabScreen(
                 else -> MediaUploadWelcome(
                     topPadding = topPadding,
                     hazeState = chromeHaze,
-                    onPickPhotos = { uploadPicker.launch("image/*") }
+                    onPickPhotos = { uploadPicker.launch("image/*") },
+                    onScanDocument = onScanDocument
                 )
             }
         }
@@ -173,7 +175,7 @@ fun MediaLabScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             LiquidGlassTopHeader(
-                title = "NexaKit · Media Lab",
+                title = "DocPix · Media Lab",
                 subtitle = when {
                     active != null -> active?.label
                     loadedUris.isNotEmpty() -> "${loadedUris.size} foto siap diproses"

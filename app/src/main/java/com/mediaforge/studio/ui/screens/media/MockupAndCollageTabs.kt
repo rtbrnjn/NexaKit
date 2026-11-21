@@ -213,7 +213,7 @@ internal fun MockupTab(vm: MockupViewModel, topPadding: Dp, hazeState: HazeState
                 value = params.watermark,
                 onValueChange = { txt -> vm.update { it.copy(watermark = txt.take(40)) } },
                 label = "Optional Watermark Text",
-                placeholder = "e.g. @nexakit.app",
+                placeholder = "e.g. @docpix.app",
                 singleLine = true
             )
         }
@@ -252,7 +252,7 @@ internal fun CollageTab(vm: CollageViewModel, topPadding: Dp, hazeState: HazeSta
         if (photos.size < 2) {
             EmptyPicker(
                 title = "Select 2 to 4 Photos",
-                subtitle = if (photos.size == 1) "1 photo picked — select 2 to 4 images for a collage" else "Exports crisp 2160px PNGs to Pictures/NexaKit",
+                subtitle = if (photos.size == 1) "1 photo picked — select 2 to 4 images for a collage" else "Exports crisp 2160px PNGs to Pictures/DocPix",
                 icon = Icons.Rounded.AutoAwesomeMosaic,
                 onClick = { picker.launch("image/*") }
             )

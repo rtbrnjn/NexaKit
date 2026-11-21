@@ -39,7 +39,7 @@ internal fun buildProductCopyPrompt(language: CopyLanguage, notes: String): Stri
 }
 
 internal fun buildDocumentSystemPrompt(documentText: String?): String = buildString {
-    appendLine("You are NexaKit's document assistant. Answer strictly from the document provided; if the answer is not in the document, say so.")
+    appendLine("You are DocPix's document assistant. Answer strictly from the document provided; if the answer is not in the document, say so.")
     appendLine("Reply in the language the user writes in unless asked to translate. Use clean, concise Markdown.")
     if (!documentText.isNullOrBlank()) {
         appendLine()

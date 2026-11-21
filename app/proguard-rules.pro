@@ -32,5 +32,7 @@
 -keep class com.google.mlkit.common.** { *; }
 -keep class com.google.mlkit.vision.common.** { *; }
 -keep class com.google.mlkit.vision.text.** { *; }
+-keep class com.google.mlkit.vision.documentscanner.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_text_bundled_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_document_scanner.** { *; }

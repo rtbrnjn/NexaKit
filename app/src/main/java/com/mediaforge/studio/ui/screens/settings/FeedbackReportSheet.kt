@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.mediaforge.studio.BuildConfig
 import com.mediaforge.studio.core.Actions
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassChip
@@ -71,7 +72,7 @@ internal object FeedbackReportFormatter {
         title: String,
         detail: String,
         includeDeviceInfo: Boolean,
-        appVersion: String = "NexaKit v1.4.1 (Build 8)",
+        appVersion: String = "DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
         deviceInfo: String = defaultDeviceSummary()
     ): String = buildString {
         appendLine("### ${kind.label} ($category)")
@@ -96,13 +97,13 @@ internal object FeedbackReportFormatter {
         title: String,
         detail: String,
         includeDeviceInfo: Boolean,
-        appVersion: String = "NexaKit v1.4.1 (Build 8)",
+        appVersion: String = "DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
         deviceInfo: String = defaultDeviceSummary()
     ): String {
         val tag = if (kind == FeedbackKind.BUG) "[Bug]" else "[Saran]"
         val fullTitle = "$tag [$category] ${title.trim()}"
         val body = formatBody(kind, category, title, detail, includeDeviceInfo, appVersion, deviceInfo)
-        return "https://github.com/rtbrnjn/MediaForge-Studio/issues/new" +
+        return "https://github.com/rtbrnjn/NexaKit/issues/new" +
             "?title=${urlEncode(fullTitle)}" +
             "&body=${urlEncode(body)}" +
             "&labels=${urlEncode(kind.ghLabel)}"
@@ -150,7 +151,7 @@ internal fun FeedbackReportSheet(onDismiss: () -> Unit) {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Laporkan Bug atau Saran", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
-                    Hint("Masukan langsung membantu pengembangan NexaKit berikutnya")
+                    Hint("Masukan langsung membantu pengembangan DocPix berikutnya")
                 }
             }
 
@@ -194,7 +195,7 @@ internal fun FeedbackReportSheet(onDismiss: () -> Unit) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Sertakan info versi & perangkat", style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
-                    Hint("NexaKit v1.4.1 (Build 8) • tanpa API key atau file pribadi")
+                    Hint("DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • tanpa API key atau file pribadi")
                 }
                 GlassSwitch(includeDeviceInfo, { includeDeviceInfo = it })
             }
@@ -208,7 +209,7 @@ internal fun FeedbackReportSheet(onDismiss: () -> Unit) {
                     onClick = {
                         val report = FeedbackReportFormatter.formatBody(kind, category, title, detail, includeDeviceInfo)
                         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        cm.setPrimaryClip(ClipData.newPlainText("NexaKit Feedback", report))
+                        cm.setPrimaryClip(ClipData.newPlainText("DocPix Feedback", report))
                         Toast.makeText(ctx, "Laporan disalin ke clipboard", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.weight(1f)

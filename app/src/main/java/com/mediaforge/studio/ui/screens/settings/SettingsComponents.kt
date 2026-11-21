@@ -276,7 +276,7 @@ internal fun ApiKeyTutorialSheet(onDismiss: () -> Unit) {
                         TutorialStepRow(1, "Buka console.groq.com di browser.", accent = Glass.Emerald)
                         TutorialStepRow(2, "Login gratis menggunakan akun Google atau GitHub kamu.", accent = Glass.Emerald)
                         TutorialStepRow(3, "Pilih menu API Keys di panel kiri, lalu klik tombol Create API Key.", accent = Glass.Emerald)
-                        TutorialStepRow(4, "Beri nama bebas (misal: NexaKit), salin kode berawalan gsk_..., lalu tempel di kolom atas dan tekan Save.", accent = Glass.Emerald)
+                        TutorialStepRow(4, "Beri nama bebas (misal: DocPix), salin kode berawalan gsk_..., lalu tempel di kolom atas dan tekan Save.", accent = Glass.Emerald)
                         Spacer(Modifier.height(4.dp))
                         GlassButton(
                             text = "Buka Groq Console",

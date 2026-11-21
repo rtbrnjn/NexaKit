@@ -76,7 +76,7 @@ internal fun PdfToDocxScreen(vm: PdfToDocxViewModel, onBack: () -> Unit) {
         if (src == null) {
             EmptyPicker(
                 title = "Choose a PDF File",
-                subtitle = "Saves editable .docx into Documents/NexaKit",
+                subtitle = "Saves editable .docx into Documents/DocPix",
                 icon = Icons.Rounded.Description,
                 onClick = { picker.launch(arrayOf("application/pdf")) }
             )
@@ -213,7 +213,7 @@ internal fun ImagesToPdfScreen(vm: ImagesToPdfViewModel, onBack: () -> Unit) {
 
     ToolPage(
         title = "Images to PDF",
-        subtitle = "Saves to Documents/NexaKit",
+        subtitle = "Saves to Documents/DocPix",
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
@@ -284,7 +284,7 @@ internal fun PdfToImagesScreen(vm: PdfToImagesViewModel, onBack: () -> Unit) {
 
     ToolPage(
         title = "PDF to Images",
-        subtitle = "Exports pages to Pictures/NexaKit/PDF_Export",
+        subtitle = "Exports pages to Pictures/DocPix/PDF_Export",
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
