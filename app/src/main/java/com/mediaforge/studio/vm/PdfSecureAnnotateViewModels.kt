@@ -39,12 +39,13 @@ class PageNumbersViewModel @Inject constructor(
         val src = _source.value ?: return
         val opts = _options.value
         runTask("Stamping page numbers…", write = true) {
-            val name = "${FileUtils.baseName(src.name)}_numbered.pdf"
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Add Page Numbers") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Numbered"),
+                toolName = "Add Page Numbers",
+                onSaved = { showInfo("Added page numbers to ${src.pageCount} page(s).") }
+            ) { out ->
                 PdfEngine.addPageNumbers(src.file, opts, out) { setProgress("Numbering pages…", it) }
             }
-            publish(listOf(saved))
-            showInfo("Added page numbers to ${src.pageCount} page(s).")
         }
     }
 }
@@ -76,12 +77,13 @@ class WatermarkPdfViewModel @Inject constructor(
         if (txt.isEmpty()) { showError("Enter watermark text first."); return }
         val wm = WatermarkOptions(txt, _opacity.value, _color.value)
         runTask("Applying watermark…", write = true) {
-            val name = "${FileUtils.baseName(src.name)}_watermarked.pdf"
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Text Watermark") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Watermarked"),
+                toolName = "Text Watermark",
+                onSaved = { showInfo("Watermark stamped onto ${src.pageCount} page(s).") }
+            ) { out ->
                 PdfEngine.watermarkPdf(src.file, wm, out) { setProgress("Watermarking…", it) }
             }
-            publish(listOf(saved))
-            showInfo("Watermark stamped onto ${src.pageCount} page(s).")
         }
     }
 }
@@ -115,12 +117,13 @@ class ProtectPdfViewModel @Inject constructor(
         val pass = _userPassword.value
         if (pass.length < 4) { showError("Use at least 4 characters for the password."); return }
         runTask("Encrypting PDF…", write = true) {
-            val name = "${FileUtils.baseName(src.name)}_protected.pdf"
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Protect PDF") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Protected"),
+                toolName = "Protect PDF",
+                onSaved = { showInfo("PDF encrypted with 128-bit password protection.") }
+            ) { out ->
                 PdfEngine.protect(src.file, pass, _ownerPassword.value, _allowPrint.value, _allowCopy.value, out)
             }
-            publish(listOf(saved))
-            showInfo("PDF encrypted with 128-bit password protection.")
         }
     }
 }
@@ -153,12 +156,13 @@ class UnlockPdfViewModel @Inject constructor(
         }
         val pass = _password.value
         runTask("Decrypting PDF…", write = true) {
-            val name = "${FileUtils.baseName(src.name)}_unlocked.pdf"
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Unlock PDF") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Unlocked"),
+                toolName = "Unlock PDF",
+                onSaved = { showInfo("Password restrictions removed.") }
+            ) { out ->
                 PdfEngine.unlock(src.file, pass, out)
             }
-            publish(listOf(saved))
-            showInfo("Password restrictions removed.")
         }
     }
 }

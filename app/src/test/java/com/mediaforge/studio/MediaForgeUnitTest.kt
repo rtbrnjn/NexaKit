@@ -14,7 +14,13 @@ import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.data.UpdateChecker
 import com.mediaforge.studio.data.migrateStoredModel
 import com.mediaforge.studio.media.CanvasRatio
+import com.mediaforge.studio.media.CollageAspect
+import com.mediaforge.studio.media.CollagePhotoMode
+import com.mediaforge.studio.media.CollageRatioCategory
+import com.mediaforge.studio.media.CollageRenderer
+import com.mediaforge.studio.media.DeviceFrameStyle
 import com.mediaforge.studio.media.MockupRenderer
+import com.mediaforge.studio.media.STUDIO_SOLID_PRESETS
 import com.mediaforge.studio.pdf.DocxBuilder
 import com.mediaforge.studio.pdf.LocalOcrEngine
 import com.mediaforge.studio.pdf.PdfCompressPreset
@@ -236,5 +242,66 @@ class MediaForgeUnitTest {
         assertFalse(UpdateChecker.isNewerVersion("v1.4.2", "1.4.2"))
         assertFalse(UpdateChecker.isNewerVersion("v1.4.1", "1.4.2"))
         assertFalse(UpdateChecker.isNewerVersion("", "1.4.2"))
+    }
+
+    @Test
+    fun pdfFileNamer_generatesCleanDefaultAndNormalizesPdfExtension() {
+        val defaultMerged = FileUtils.defaultPdfStem("Merged")
+        assertTrue(defaultMerged.startsWith("DocPix_Merged_"))
+        assertTrue(defaultMerged.matches(Regex("^DocPix_Merged_\\d{8}$")))
+
+        assertEquals("Laporan_Mei.pdf", FileUtils.normalizePdfFilename("Laporan_Mei", defaultMerged))
+        assertEquals("Laporan_Mei.pdf", FileUtils.normalizePdfFilename("Laporan_Mei.pdf", defaultMerged))
+        assertEquals("Laporan_Mei.pdf", FileUtils.normalizePdfFilename("Laporan_Mei.PDF", defaultMerged))
+        assertEquals("$defaultMerged.pdf", FileUtils.normalizePdfFilename("   ", defaultMerged))
+        assertEquals("data_2026_oke.pdf", FileUtils.normalizePdfFilename("data/2026:oke.", defaultMerged))
+    }
+
+    @Test
+    fun collageAndMockupRatiosAndOptions_matchSocialMediaAndFrameSpecs() {
+        assertEquals(2160 to 2160, CollageRenderer.outputSize(CollageAspect.SQUARE, 2160))
+        assertEquals(2160 to 2700, CollageRenderer.outputSize(CollageAspect.PORTRAIT_4_5, 2160))
+        assertEquals(2160 to 3840, CollageRenderer.outputSize(CollageAspect.PORTRAIT_9_16, 2160))
+        assertEquals(2160 to 1215, CollageRenderer.outputSize(CollageAspect.LANDSCAPE_16_9, 2160))
+        assertEquals(2160 to 1620, CollageRenderer.outputSize(CollageAspect.LANDSCAPE_4_3, 2160))
+        assertEquals(
+            listOf(CollageRatioCategory.SQUARE, CollageRatioCategory.PORTRAIT, CollageRatioCategory.LANDSCAPE),
+            CollageRatioCategory.entries
+        )
+        assertEquals(listOf(CollagePhotoMode.FILL, CollagePhotoMode.FIT), CollagePhotoMode.entries)
+
+        assertEquals(1440 to 810, MockupRenderer.outputSize(CanvasRatio.LANDSCAPE, 1440))
+        assertEquals(
+            listOf(
+                DeviceFrameStyle.FLAT_SMARTPHONE,
+                DeviceFrameStyle.FRAMELESS_GLASS,
+                DeviceFrameStyle.BROWSER_WINDOW,
+                DeviceFrameStyle.TABLET
+            ),
+            DeviceFrameStyle.entries
+        )
+        assertTrue(STUDIO_SOLID_PRESETS.any { it.color == 0xFFFFD1DC.toInt() && it.label.contains("Pink", ignoreCase = true) })
+        assertTrue(STUDIO_SOLID_PRESETS.any { it.color == 0xFF0B0E13.toInt() })
+        assertTrue(STUDIO_SOLID_PRESETS.any { it.color == 0xFFFFFFFF.toInt() })
+    }
+
+    @Test
+    fun pagerGestureCoordinator_tracksConcurrentLocksSafely() {
+        val coord = com.mediaforge.studio.ui.components.PagerGestureCoordinator()
+        assertFalse(coord.isLocked)
+
+        val relA = coord.acquire()
+        assertTrue(coord.isLocked)
+
+        val relB = coord.acquire()
+        assertTrue(coord.isLocked)
+
+        // Calling release twice on relA must not drop relB's active lock
+        relA()
+        relA()
+        assertTrue(coord.isLocked)
+
+        relB()
+        assertFalse(coord.isLocked)
     }
 }

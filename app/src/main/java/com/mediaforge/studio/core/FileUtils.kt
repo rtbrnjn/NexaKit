@@ -65,6 +65,34 @@ object FileUtils {
 
     fun timestamp(): String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
+    fun dateStamp(date: Date = Date()): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(date)
+
+    /** Builds a clean default DocPix PDF filename stem, e.g. `DocPix_Merged_20261123`. */
+    fun defaultPdfStem(tag: String, date: Date = Date()): String {
+        val cleanTag = sanitize(tag).replace(Regex("\\s+"), "_").ifEmpty { "PDF" }
+        return "DocPix_${cleanTag}_${dateStamp(date)}"
+    }
+
+    /**
+     * Sanitizes a user-provided filename and ensures a single `.pdf` extension is present.
+     * Blank inputs fall back safely to [fallbackStem].
+     */
+    fun normalizePdfFilename(rawInput: String, fallbackStem: String): String {
+        val cleanedFallback = sanitize(fallbackStem)
+            .replace(Regex("(?i)\\.pdf$"), "")
+            .trimEnd('.')
+            .ifEmpty { "DocPix_Document" }
+        val stripped = rawInput.trim()
+            .replace(Regex("(?i)\\.pdf$"), "")
+            .trimEnd('.', ' ')
+        val safeStem = if (stripped.isBlank()) {
+            cleanedFallback
+        } else {
+            sanitize(stripped).trimEnd('.', ' ').ifEmpty { cleanedFallback }
+        }
+        return "$safeStem.pdf"
+    }
+
     fun formatBytes(bytes: Long): String {
         if (bytes <= 0) return "0 B"
         val kb = 1024.0

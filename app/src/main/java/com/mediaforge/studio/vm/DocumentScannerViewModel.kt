@@ -36,11 +36,11 @@ class DocumentScannerViewModel @Inject constructor(
     private val _pdfFile = MutableStateFlow<File?>(null)
     val hasPdf: Boolean get() = _pdfFile.value?.exists() == true
 
-    private val _filePrefix = MutableStateFlow("Scan_${FileUtils.timestamp()}")
+    private val _filePrefix = MutableStateFlow(FileUtils.defaultPdfStem("Scan"))
     val filePrefix: StateFlow<String> = _filePrefix
 
     fun setFilePrefix(value: String) {
-        _filePrefix.value = value.replace(Regex("[^A-Za-z0-9_\\- ]"), "").take(48)
+        _filePrefix.value = value.replace(Regex("[^A-Za-z0-9_\\- ]"), "").take(64)
     }
 
     fun onScannerError(msg: String) {
@@ -80,7 +80,7 @@ class DocumentScannerViewModel @Inject constructor(
 
             _pageFiles.value = copiedPages
             _pdfFile.value = copiedPdf
-            _filePrefix.value = "Scan_${FileUtils.timestamp()}"
+            _filePrefix.value = FileUtils.defaultPdfStem("Scan")
 
             val count = copiedPages.size.takeIf { it > 0 } ?: (pdf?.pageCount ?: 1)
             showInfo("$count halaman selesai dipindai. Pilih Simpan PDF atau Gambar.")
@@ -94,27 +94,18 @@ class DocumentScannerViewModel @Inject constructor(
             showError("Belum ada dokumen yang dipindai.")
             return
         }
-        val name = "${sanitizedPrefix()}.pdf"
-        runTask("Menyimpan PDF ke Documents/DocPix…", write = true) {
-            val saved = if (readyPdf != null) {
-                Storage.saveFile(
-                    ctx = ctx,
-                    kind = OutputKind.DOCUMENT,
-                    subFolder = null,
-                    displayName = name,
-                    mime = "application/pdf",
-                    tool = "Document Scanner",
-                    source = readyPdf
-                )
-            } else {
-                Storage.save(
-                    ctx = ctx,
-                    kind = OutputKind.DOCUMENT,
-                    subFolder = null,
-                    displayName = name,
-                    mime = "application/pdf",
-                    tool = "Document Scanner"
-                ) { out ->
+        val stem = sanitizedPrefix()
+        runTask("Menyiapkan PDF hasil scan…", write = true) {
+            stagePdfOutput(
+                defaultStem = stem,
+                toolName = "Document Scanner",
+                onSaved = { saved ->
+                    showInfo("PDF tersimpan di ${saved.folder}/${saved.name} (${FileUtils.formatBytes(saved.sizeBytes)}).")
+                }
+            ) { out ->
+                if (readyPdf != null) {
+                    readyPdf.inputStream().use { it.copyTo(out, 64 * 1024) }
+                } else {
                     PdfEngine.imagesToPdf(
                         ctx = ctx,
                         images = pages.map { Uri.fromFile(it) },
@@ -124,8 +115,6 @@ class DocumentScannerViewModel @Inject constructor(
                     ) { setProgress("Menyusun PDF…", it) }
                 }
             }
-            publish(listOf(saved))
-            showInfo("PDF tersimpan di ${saved.folder}/${saved.name} (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 
@@ -157,7 +146,7 @@ class DocumentScannerViewModel @Inject constructor(
     }
 
     private fun sanitizedPrefix(): String =
-        _filePrefix.value.trim().replace(Regex("\\s+"), "_").ifBlank { "Scan_${FileUtils.timestamp()}" }
+        _filePrefix.value.trim().replace(Regex("\\s+"), "_").ifBlank { FileUtils.defaultPdfStem("Scan") }
 
     private fun copyUriToFile(uri: Uri, target: File): Boolean = runCatching {
         ctx.contentResolver.openInputStream(uri)?.use { input ->

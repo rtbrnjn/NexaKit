@@ -6,19 +6,25 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ---
 
-## Download & Install APK (`v1.4.2`)
+## Download & Install APK (`v1.4.3`)
 
-- **Direct Download (`v1.4.2`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.2/DocPix.apk)
+- **Direct Download (`v1.4.3`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.3/DocPix.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `DocPix.apk` dari halaman Releases di atas.
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **NexaKit v1.2.0 – v1.4.1** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
+3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
 
 ---
 
-## What's New in v1.4.2 ("DocPix Rebrand, Document Scanner, Auto-Update & Monochrome Liquid Glass")
+## What's New in v1.4.3 ("PDF Rename Dialog, Swipe Navigation, Multi-Ratio Collage & Modern Device Mockups")
+- **Opsi Rename File PDF Sebelum Simpan (PDF Suite):** Seluruh pemroses PDF (Merge, Split, Compress, Images to PDF, Document Scanner ke PDF, Word to PDF, Rotate & Delete, Page Numbers, Watermark, Protect, dan Unlock) kini menampilkan **Liquid Glass Rename Dialog** pre-terisi rapi (mis. `DocPix_Merged_20261123`) beserta penambahan otomatis `.pdf` sebelum disimpan ke `Documents/DocPix`.
+- **Navigasi Swipe / Slide Antar Menu (`HorizontalPager`):** Pindah mulus antar **Media Lab**, **PDF Suite**, **AI Studio**, dan **Settings** dengan geser kiri/kanan, sinkronisasi 1:1 pada *sliding pill* indikator dock bawah, serta proteksi **Anti-Bentrok Gesture** agar seret slider kualitas/radius dan strip horizontal tidak memicu perpindahan tab utama secara tidak sengaja.
+- **Kolase / Grid Foto Multi-Rasio & Mode Fit/Fill:** Dukungan penuh **Square (`1:1`)**, **Portrait (`4:5` & `9:16`)**, dan **Landscape (`16:9` & `4:3`)** lewat *Liquid Glass Pill Selector*, plus opsi **Fill (Penuh)** vs **Fit (Utuh)** tanpa pemotongan paksa, kontrol *Grid Spacing* dan *Corner Radius*.
+- **Peningkatan Device Mockup Studio:** Empat pilihan frame realistis (**Smartphone Punch-Hole**, **Frameless Glass**, **Browser Window**, dan **Tablet**), latar belakang polos estetik (**Obsidian Dark**, **Pure White**, **Soft Pastel Pink `#FFD1DC`**, **Slate Gray**, serta **Blurred Photo** yang mengambil warna dominan foto secara otomatis), pantulan kaca tipis, slider padding kanvas, dan rasio ekspor `1:1`, `4:5`, `9:16`, serta `16:9`.
+
+## Highlights in v1.4.2 ("DocPix Rebrand, Document Scanner, Auto-Update & Monochrome Liquid Glass")
 - **Document Scanner Offline (ML Kit Document Scanner API):** Tambahan fitur **Scan Document** di **PDF Suite** (beserta pintasan langsung di **Media Lab**) dengan deteksi tepi kertas otomatis, auto-crop perspektif, penghapus bayangan, filter dokumen tajam, dukungan multi-halaman & impor galeri, serta ekspor langsung sebagai **PDF (`Documents/DocPix`)** atau **Gambar JPG (`Pictures/DocPix`)**.
 - **Complete Rebrand to DocPix & `DocPix.apk`:** Rebranding menyeluruh nama aplikasi, judul header layar, direktori penyimpanan (`Documents/DocPix` & `Pictures/DocPix`), ikon aplikasi resmi `logo_docpix.png` (adaptif + mipmap penuh di `#0E1116`), serta aset rilis **`DocPix.apk`**.
 - **In-App Auto-Update Checker (`UpdateChecker`):** Pengecekan versi otomatis saat aplikasi dibuka (plus tombol manual **"Cek Pembaruan"** di Settings) melalui GitHub Releases API (`rtbrnjn/DocPix` dengan fallback otomatis ke `rtbrnjn/NexaKit`), lengkap dengan **Liquid Glass Update Dialog** berisi catatan rilis dan unduh langsung `DocPix.apk`.
@@ -56,8 +62,8 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ### 1. Media Lab (100% Offline)
 - **Batch Image Compressor & EXIF Privacy Cleaner** — Multi-select gambar, atur kualitas (`10%–95%`), resolusi maksimum (`Original`, `1080p`, `720p`), format (`WEBP`, `JPEG`), estimasi ukuran real-time, dan penghapusan tag GPS/EXIF via `ExifInterface`.
-- **Minimalist Product Mockup Framer** — Kanvas `1:1`, `4:5`, `9:16` dengan pilihan solid studio & gradient lembut, bezel kaca, radius sudut, bayangan elevasi, dan watermark teks.
-- **Clean Grid Collage Maker** — Gabungkan 2–4 foto menjadi kolase PNG beresolusi tinggi ke `Pictures/DocPix`.
+- **Modern Device Mockup Framer** — Pilihan frame *Smartphone (Punch-Hole)*, *Frameless Glass*, *Browser Window*, dan *Tablet* di kanvas `1:1`, `4:5`, `9:16`, atau `16:9` dengan backdrop *Blurred Photo*, warna solid bersih (*Obsidian Dark*, *Pure White*, *Soft Pastel Pink `#FFD1DC`*, *Slate Gray*), pantulan kaca opsional, shadow, dan watermark.
+- **Clean Grid Collage Maker** — Gabungkan 2–4 foto dalam rasio `1:1`, `4:5`, `9:16`, `16:9`, atau `4:3` dengan mode *Fill / Fit (Utuh)*, pengaturan spasi & radius ke `Pictures/DocPix`.
 
 ### 2. PDF24-Style Pocket Suite (100% Offline · 13 Tools)
 1. **Scan Document** — Pemindai dokumen kamera berbasis ML Kit dengan auto-crop, hapus bayangan, dan ekspor langsung ke **PDF (`Documents/DocPix`)** atau **Gambar JPG (`Pictures/DocPix`)**.

@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mediaforge.studio.AppCoordinator
+import com.mediaforge.studio.PendingPdfSave
 import com.mediaforge.studio.core.Permissions
 import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.pdf.PdfException
@@ -15,6 +16,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.OutputStream
 
 data class Progress(val label: String, val fraction: Float? = null)
 data class UiMessage(val text: String, val isError: Boolean = false)
@@ -67,4 +70,42 @@ abstract class ToolViewModel(
         }
 
     protected fun publish(files: List<SavedFile>) = coordinator.publish(files)
+
+    protected fun stagePdfFile(
+        file: File,
+        defaultStem: String,
+        toolName: String,
+        onSaved: (suspend (SavedFile) -> Unit)? = null
+    ) {
+        coordinator.stagePdfSave(
+            PendingPdfSave(
+                tempFile = file,
+                defaultStem = defaultStem,
+                toolName = toolName,
+                onSaved = onSaved,
+                onFailed = { showError(it) }
+            )
+        )
+    }
+
+    /** Generates PDF content into a staged cache file, then prompts the Liquid Glass Rename Dialog before saving. */
+    protected fun stagePdfOutput(
+        defaultStem: String,
+        toolName: String,
+        onSaved: (suspend (SavedFile) -> Unit)? = null,
+        writePdf: (OutputStream) -> Unit
+    ) {
+        val dir = File(ctx.cacheDir, "pdf_staged").apply { mkdirs() }
+        val tmp = File(dir, "staged_${System.nanoTime()}.pdf")
+        try {
+            tmp.outputStream().use { out ->
+                writePdf(out)
+                out.flush()
+            }
+            stagePdfFile(tmp, defaultStem, toolName, onSaved)
+        } catch (t: Throwable) {
+            tmp.delete()
+            throw t
+        }
+    }
 }

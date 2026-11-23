@@ -47,11 +47,15 @@ class MergePdfViewModel @Inject constructor(
         val list = _sources.value
         if (list.size < 2) { showError("Add at least two PDFs."); return }
         runTask("Merging PDFs…", write = true) {
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, "Merged_${FileUtils.timestamp()}.pdf", "application/pdf", "Merge PDFs") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Merged"),
+                toolName = "Merge PDFs",
+                onSaved = { saved ->
+                    showInfo("Merged ${list.sumOf { it.pageCount }} pages (${FileUtils.formatBytes(saved.sizeBytes)}).")
+                }
+            ) { out ->
                 PdfEngine.merge(list.map { it.file }, out) { setProgress("Merging…", it) }
             }
-            publish(listOf(saved))
-            showInfo("Merged ${list.sumOf { it.pageCount }} pages (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 }
@@ -108,12 +112,15 @@ class SplitPdfViewModel @Inject constructor(
             showError(e.message ?: "Invalid range"); return
         }
         runTask("Extracting pages…", write = true) {
-            val name = "${FileUtils.baseName(src.name)}_pages_${FileUtils.timestamp()}.pdf"
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Split / Extract") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Split"),
+                toolName = "Split / Extract",
+                onSaved = { saved ->
+                    showInfo("Extracted ${pages.size} page(s) (${FileUtils.formatBytes(saved.sizeBytes)}).")
+                }
+            ) { out ->
                 PdfEngine.extractPages(src.file, pages, out)
             }
-            publish(listOf(saved))
-            showInfo("Extracted ${pages.size} page(s) (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 
@@ -163,7 +170,9 @@ class CompressPdfViewModel @Inject constructor(
         val src = _source.value ?: return
         val p = _preset.value
         runTask("Compressing PDF…", write = true) {
-            val tmp = File(ctx.cacheDir, "pdf_compress_${System.nanoTime()}.pdf")
+            val dir = File(ctx.cacheDir, "pdf_staged").apply { mkdirs() }
+            val tmp = File(dir, "pdf_compress_${System.nanoTime()}.pdf")
+            var staged = false
             try {
                 tmp.outputStream().use { out ->
                     PdfEngine.compress(src.file, p.dpi, p.jpegQuality, out) { setProgress("Optimising pages…", it) }
@@ -173,14 +182,20 @@ class CompressPdfViewModel @Inject constructor(
                     showInfo("This PDF is already compact – try the Low preset for smaller scans.")
                     return@runTask
                 }
-                val name = "${FileUtils.baseName(src.name)}_compressed.pdf"
-                val saved = Storage.saveFile(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Compress PDF", tmp)
-                val delta = (src.sizeBytes - saved.sizeBytes).coerceAtLeast(0L)
-                settings.addBytesSaved(delta)
-                _result.value = CompressPdfResult(src.sizeBytes, saved.sizeBytes)
-                publish(listOf(saved))
+                _result.value = CompressPdfResult(src.sizeBytes, tmp.length())
+                staged = true
+                stagePdfFile(
+                    file = tmp,
+                    defaultStem = FileUtils.defaultPdfStem("Compressed"),
+                    toolName = "Compress PDF",
+                    onSaved = { saved ->
+                        val delta = (src.sizeBytes - saved.sizeBytes).coerceAtLeast(0L)
+                        settings.addBytesSaved(delta)
+                        _result.value = CompressPdfResult(src.sizeBytes, saved.sizeBytes)
+                    }
+                )
             } finally {
-                tmp.delete()
+                if (!staged) tmp.delete()
             }
         }
     }
@@ -238,11 +253,12 @@ class EditPdfViewModel @Inject constructor(
         val del = _deleted.value
         if (rot.isEmpty() && del.isEmpty()) { showError("Rotate or delete at least one page first."); return }
         runTask("Applying changes…", write = true) {
-            val name = "${FileUtils.baseName(src.name)}_edited.pdf"
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, name, "application/pdf", "Rotate & Delete") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Edited"),
+                toolName = "Rotate & Delete"
+            ) { out ->
                 PdfEngine.edit(src.file, rot, del, null, out)
             }
-            publish(listOf(saved))
         }
     }
 

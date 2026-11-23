@@ -75,7 +75,8 @@ fun MediaLabScreen(
     collageVm: CollageViewModel = viewModel(),
     requestedTool: MediaTool? = null,
     onToolHandled: () -> Unit = {},
-    onScanDocument: () -> Unit = {}
+    onScanDocument: () -> Unit = {},
+    isTabActive: Boolean = true
 ) {
     var active by rememberSaveable { mutableStateOf<MediaTool?>(null) }
     val chromeHaze = LocalHazeState.current
@@ -126,7 +127,7 @@ fun MediaLabScreen(
         }
     }
 
-    BackHandler(enabled = active != null) {
+    BackHandler(enabled = isTabActive && active != null) {
         active = null
     }
 

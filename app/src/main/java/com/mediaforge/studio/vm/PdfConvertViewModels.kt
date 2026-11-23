@@ -100,15 +100,20 @@ class TextToPdfViewModel @Inject constructor(
         val docxBlocks = _docx.value
         val raw = _text.value
         val md = _markdown.value
-        val title = _fileName.value?.let { FileUtils.baseName(it) } ?: "Document"
+        val stem = _fileName.value?.let { "DocPix_${FileUtils.baseName(it)}_${FileUtils.dateStamp()}" }
+            ?: FileUtils.defaultPdfStem("Document")
         if (docxBlocks == null && raw.isBlank()) { showError("Import a .docx file or enter text first."); return }
         runTask("Typesetting A4 PDF…", write = true) {
             val blocks = docxBlocks ?: if (md) MarkdownParser.parse(raw) else MarkdownParser.plain(raw)
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, "${title}_${FileUtils.timestamp()}.pdf", "application/pdf", "Word to PDF") { out ->
+            stagePdfOutput(
+                defaultStem = stem,
+                toolName = "Word to PDF",
+                onSaved = { saved ->
+                    showInfo("PDF created (${FileUtils.formatBytes(saved.sizeBytes)}).")
+                }
+            ) { out ->
                 DocumentPdfRenderer.render(blocks, out) { setProgress("Paginating…", it) }
             }
-            publish(listOf(saved))
-            showInfo("PDF created (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 }
@@ -159,11 +164,15 @@ class ImagesToPdfViewModel @Inject constructor(
         val mode = _mode.value
         val q = _quality.value / 100f
         runTask("Building PDF…", write = true) {
-            val saved = Storage.save(ctx, OutputKind.DOCUMENT, null, "Images_${FileUtils.timestamp()}.pdf", "application/pdf", "Images to PDF") { out ->
+            stagePdfOutput(
+                defaultStem = FileUtils.defaultPdfStem("Images"),
+                toolName = "Images to PDF",
+                onSaved = { saved ->
+                    showInfo("PDF with ${uris.size} page(s) created (${FileUtils.formatBytes(saved.sizeBytes)}).")
+                }
+            ) { out ->
                 PdfEngine.imagesToPdf(ctx, uris, mode, q, out) { setProgress("Adding pages…", it) }
             }
-            publish(listOf(saved))
-            showInfo("PDF with ${uris.size} page(s) created (${FileUtils.formatBytes(saved.sizeBytes)}).")
         }
     }
 }

@@ -10,12 +10,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,6 +29,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -49,6 +46,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,31 +55,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.mediaforge.studio.core.Permissions
 import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.ui.components.LiquidGlassBackdrop
 import com.mediaforge.studio.ui.components.LocalBackdropHazeState
 import com.mediaforge.studio.ui.components.LocalHazeState
+import com.mediaforge.studio.ui.components.LocalPagerGestureCoordinator
+import com.mediaforge.studio.ui.components.PagerGestureCoordinator
 import com.mediaforge.studio.ui.components.liquidGlassChrome
 import com.mediaforge.studio.ui.screens.AiTool
 import com.mediaforge.studio.ui.screens.AppUpdateDialog
 import com.mediaforge.studio.ui.screens.GeminiAiScreen
 import com.mediaforge.studio.ui.screens.MediaLabScreen
 import com.mediaforge.studio.ui.screens.MediaTool
+import com.mediaforge.studio.ui.screens.PdfRenameDialog
 import com.mediaforge.studio.ui.screens.PdfSuiteScreen
 import com.mediaforge.studio.ui.screens.PdfTool
 import com.mediaforge.studio.ui.screens.ResultSheet
@@ -115,12 +112,13 @@ import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
-private enum class TopTab(val route: String, val label: String, val icon: ImageVector) {
-    MEDIA_LAB("media_lab", "Media Lab", Icons.Rounded.PhotoLibrary),
-    PDF_SUITE("pdf_suite", "PDF Suite", Icons.Rounded.PictureAsPdf),
-    GEMINI_AI("gemini_ai", "AI Studio", Icons.Rounded.AutoAwesome),
-    SETTINGS("settings", "Settings", Icons.Rounded.Tune)
+private enum class TopTab(val label: String, val icon: ImageVector) {
+    MEDIA_LAB("Media Lab", Icons.Rounded.PhotoLibrary),
+    PDF_SUITE("PDF Suite", Icons.Rounded.PictureAsPdf),
+    GEMINI_AI("AI Studio", Icons.Rounded.AutoAwesome),
+    SETTINGS("Settings", Icons.Rounded.Tune)
 }
 
 @AndroidEntryPoint
@@ -189,9 +187,8 @@ private fun MediaForgeRoot(
 
     val backdropHazeState = rememberHazeState()
     val chromeHazeState = rememberHazeState()
-    val navController = rememberNavController()
-    val backStack by navController.currentBackStackEntryAsState()
-    val currentRoute = backStack?.destination?.route ?: TopTab.MEDIA_LAB.route
+    val pagerGestureCoordinator = remember { PagerGestureCoordinator() }
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { TopTab.entries.size })
 
     // Activity-scoped ViewModels so incoming Android Share intents can populate any tool directly.
     val settingsVm: SettingsViewModel = viewModel()
@@ -222,6 +219,8 @@ private fun MediaForgeRoot(
     val results by coordinator.results.collectAsState()
     val incomingShare by coordinator.incomingShare.collectAsState()
     val shareDispatch by coordinator.shareDispatch.collectAsState()
+    val pendingPdfSave by coordinator.pendingPdfSave.collectAsState()
+    val savingPendingPdf by coordinator.savingPendingPdf.collectAsState()
     val showUpdateDialog by settingsVm.showUpdateDialog.collectAsState()
     val availableUpdate by settingsVm.availableUpdate.collectAsState()
 
@@ -238,10 +237,8 @@ private fun MediaForgeRoot(
     }
 
     fun navigateTo(tab: TopTab) {
-        navController.navigate(tab.route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
+        scope.launch {
+            pagerState.animateScrollToPage(tab.ordinal)
         }
     }
 
@@ -309,7 +306,8 @@ private fun MediaForgeRoot(
 
     CompositionLocalProvider(
         LocalBackdropHazeState provides backdropHazeState,
-        LocalHazeState provides chromeHazeState
+        LocalHazeState provides chromeHazeState,
+        LocalPagerGestureCoordinator provides pagerGestureCoordinator
     ) {
         LiquidGlassBackdrop(
             backdropHaze = backdropHazeState,
@@ -320,25 +318,14 @@ private fun MediaForgeRoot(
                     .fillMaxSize()
                     .statusBarsPadding()
             ) {
-                NavHost(
-                    navController = navController,
-                    startDestination = TopTab.MEDIA_LAB.route,
-                    enterTransition = {
-                        fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220))
-                    },
-                    exitTransition = {
-                        fadeOut(tween(180))
-                    },
-                    popEnterTransition = {
-                        fadeIn(tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220))
-                    },
-                    popExitTransition = {
-                        fadeOut(tween(180))
-                    },
+                HorizontalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 1,
+                    userScrollEnabled = !pagerGestureCoordinator.isLocked,
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    composable(TopTab.MEDIA_LAB.route) {
-                        MediaLabScreen(
+                ) { page ->
+                    when (TopTab.entries[page]) {
+                        TopTab.MEDIA_LAB -> MediaLabScreen(
                             compressorVm = compressorVm,
                             mockupVm = mockupVm,
                             collageVm = collageVm,
@@ -347,11 +334,10 @@ private fun MediaForgeRoot(
                             onScanDocument = {
                                 requestedPdfTool = PdfTool.SCAN_DOCUMENT
                                 navigateTo(TopTab.PDF_SUITE)
-                            }
+                            },
+                            isTabActive = pagerState.currentPage == TopTab.MEDIA_LAB.ordinal
                         )
-                    }
-                    composable(TopTab.PDF_SUITE.route) {
-                        PdfSuiteScreen(
+                        TopTab.PDF_SUITE -> PdfSuiteScreen(
                             scannerVm = scannerVm,
                             pdfToDocxVm = pdfToDocxVm,
                             textToPdfVm = textToPdfVm,
@@ -366,11 +352,10 @@ private fun MediaForgeRoot(
                             protectVm = protectVm,
                             unlockVm = unlockVm,
                             requestedTool = requestedPdfTool,
-                            onToolHandled = { requestedPdfTool = null }
+                            onToolHandled = { requestedPdfTool = null },
+                            isTabActive = pagerState.currentPage == TopTab.PDF_SUITE.ordinal
                         )
-                    }
-                    composable(TopTab.GEMINI_AI.route) {
-                        GeminiAiScreen(
+                        TopTab.GEMINI_AI -> GeminiAiScreen(
                             settingsVm = settingsVm,
                             onOpenVault = { navigateTo(TopTab.SETTINGS) },
                             copyVm = copyVm,
@@ -379,12 +364,12 @@ private fun MediaForgeRoot(
                             requestedTool = requestedAiTool,
                             onToolHandled = { requestedAiTool = null }
                         )
+                        TopTab.SETTINGS -> SettingsScreen(settingsVm)
                     }
-                    composable(TopTab.SETTINGS.route) { SettingsScreen(settingsVm) }
                 }
 
                 LiquidGlassBottomBar(
-                    currentRoute = currentRoute,
+                    pagerState = pagerState,
                     onSelect = ::navigateTo,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -397,6 +382,13 @@ private fun MediaForgeRoot(
                 share = incomingShare,
                 onSelect = coordinator::dispatchShareAction,
                 onDismiss = coordinator::dismissIncomingShare
+            )
+
+            PdfRenameDialog(
+                pending = pendingPdfSave,
+                saving = savingPendingPdf,
+                onConfirm = coordinator::commitPendingPdfSave,
+                onDismiss = coordinator::cancelPendingPdfSave
             )
 
             ResultSheet(
@@ -416,14 +408,21 @@ private fun MediaForgeRoot(
 
 @Composable
 private fun LiquidGlassBottomBar(
-    currentRoute: String,
+    pagerState: PagerState,
     onSelect: (TopTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tabs = TopTab.entries
-    val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     val isDark = Glass.IsDark
     val pillShape = RoundedCornerShape(22.dp)
+    val density = LocalDensity.current
+    val highlightedIndex by remember(pagerState) {
+        derivedStateOf {
+            (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                .roundToInt()
+                .coerceIn(0, tabs.lastIndex)
+        }
+    }
 
     val pillFill = remember(isDark) {
         if (isDark) Color.White.copy(alpha = 0.14f)
@@ -444,17 +443,16 @@ private fun LiquidGlassBottomBar(
             .padding(6.dp)
     ) {
         val tabWidth = maxWidth / tabs.size
-        val indicatorOffset by animateDpAsState(
-            targetValue = tabWidth * selectedIndex,
-            animationSpec = spring(dampingRatio = 0.8f, stiffness = 360f),
-            label = "bottomPillSlide"
-        )
+        val tabWidthPx = with(density) { tabWidth.toPx() }
+        val pageFraction = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+            .coerceIn(0f, tabs.lastIndex.toFloat())
+        val indicatorOffsetPx = (tabWidthPx * pageFraction).roundToInt()
 
         Box(Modifier.fillMaxWidth().height(54.dp)) {
-            // Animated sliding liquid pill droplet
+            // Sliding liquid pill synced 1:1 with HorizontalPager scroll offset
             Box(
                 Modifier
-                    .offset(x = indicatorOffset)
+                    .offset { IntOffset(indicatorOffsetPx, 0) }
                     .width(tabWidth)
                     .fillMaxHeight()
                     .clip(pillShape)
@@ -463,8 +461,8 @@ private fun LiquidGlassBottomBar(
             )
 
             Row(Modifier.fillMaxSize()) {
-                tabs.forEach { tab ->
-                    val selected = tab.route == currentRoute
+                tabs.forEachIndexed { index, tab ->
+                    val selected = index == highlightedIndex
                     val interaction = remember { MutableInteractionSource() }
                     Column(
                         Modifier

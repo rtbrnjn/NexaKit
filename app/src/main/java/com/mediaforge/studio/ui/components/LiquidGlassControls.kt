@@ -3,9 +3,13 @@ package com.mediaforge.studio.ui.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +24,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,21 +39,88 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.ui.theme.Glass
+
+/**
+ * Coordinates touch locks so inner horizontal controls (Sliders, horizontal strips)
+ * never conflict with an outer `HorizontalPager` navigation swipe.
+ */
+class PagerGestureCoordinator {
+    private var activeLocks by mutableIntStateOf(0)
+    val isLocked: Boolean get() = activeLocks > 0
+
+    fun acquire(): () -> Unit {
+        activeLocks += 1
+        var released = false
+        return {
+            if (!released) {
+                released = true
+                activeLocks = (activeLocks - 1).coerceAtLeast(0)
+            }
+        }
+    }
+}
+
+val LocalPagerGestureCoordinator = compositionLocalOf<PagerGestureCoordinator?> { null }
+
+/** Prevents outer HorizontalPager swipes while the pointer is interacting with this control. */
+@Composable
+fun Modifier.blockParentPagerSwipe(): Modifier {
+    val coordinator = LocalPagerGestureCoordinator.current ?: return this
+    return this.pointerInput(coordinator) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val release = coordinator.acquire()
+            try {
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                } while (event.changes.any { it.pressed })
+            } finally {
+                release()
+            }
+        }
+    }
+}
+
+private object ConsumeHorizontalOverflowConnection : NestedScrollConnection {
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+        Offset(available.x, 0f)
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+        Velocity(available.x, 0f)
+}
+
+/** Horizontal scroll modifier that absorbs boundary overflow and locks outer pager swipes cleanly. */
+@Composable
+fun Modifier.horizontalCarouselScroll(state: ScrollState = rememberScrollState()): Modifier =
+    this
+        .blockParentPagerSwipe()
+        .nestedScroll(ConsumeHorizontalOverflowConnection)
+        .horizontalScroll(state)
 
 @Composable
 fun LiquidGlassPill(
@@ -212,7 +285,7 @@ fun LabeledSlider(
     modifier: Modifier = Modifier,
     steps: Int = 0
 ) {
-    Column(modifier) {
+    Column(modifier.blockParentPagerSwipe()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodyMedium, color = Glass.TextSecondary, modifier = Modifier.weight(1f))
             Text(valueText, style = MaterialTheme.typography.labelLarge, color = Glass.Cyan)
@@ -244,6 +317,7 @@ fun GlassTextField(
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: @Composable (() -> Unit)? = null
 ) {
@@ -257,6 +331,7 @@ fun GlassTextField(
         minLines = minLines,
         maxLines = maxLines,
         keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
         visualTransformation = visualTransformation,
         trailingIcon = trailing,
         shape = RoundedCornerShape(18.dp),

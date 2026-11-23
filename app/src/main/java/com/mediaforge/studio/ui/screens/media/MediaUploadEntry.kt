@@ -3,7 +3,6 @@ package com.mediaforge.studio.ui.screens.media
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.Hint
+import com.mediaforge.studio.ui.components.horizontalCarouselScroll
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.UriImage
 import com.mediaforge.studio.ui.screens.MediaTool
@@ -175,7 +175,7 @@ internal fun MediaActionChooser(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+                    .horizontalCarouselScroll(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 uris.take(10).forEach { uri ->
@@ -202,7 +202,7 @@ internal fun MediaActionChooser(
 
         MediaActionRowCard(
             title = "Minimalist Product Mockup",
-            subtitle = "Bingkai foto dengan backdrop estetik rasio 1:1, 4:5, atau 9:16",
+            subtitle = "Bingkai perangkat modern rasio 1:1, 4:5, 9:16, atau 16:9",
             icon = Icons.Rounded.FilterFrames,
             accent = Glass.Cyan,
             onClick = { onSelectTool(MediaTool.MOCKUP) }

@@ -3,16 +3,20 @@ package com.mediaforge.studio
 import android.content.Context
 import android.net.Uri
 import com.mediaforge.studio.core.FileUtils
+import com.mediaforge.studio.core.OutputKind
 import com.mediaforge.studio.core.SavedFile
+import com.mediaforge.studio.core.Storage
 import com.mediaforge.studio.data.HistoryStore
 import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.di.AppScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,6 +26,15 @@ data class IncomingShare(
 ) {
     val isEmpty: Boolean get() = images.isEmpty() && pdfs.isEmpty()
 }
+
+data class PendingPdfSave(
+    val id: Long = System.nanoTime(),
+    val tempFile: File,
+    val defaultStem: String,
+    val toolName: String,
+    val onSaved: (suspend (SavedFile) -> Unit)? = null,
+    val onFailed: ((String) -> Unit)? = null
+)
 
 enum class ShareAction {
     COMPRESS_IMAGES,
@@ -62,6 +75,12 @@ class AppCoordinator @Inject constructor(
     private val _shareDispatch = MutableStateFlow<PendingShareDispatch?>(null)
     val shareDispatch: StateFlow<PendingShareDispatch?> = _shareDispatch
 
+    private val _pendingPdfSave = MutableStateFlow<PendingPdfSave?>(null)
+    val pendingPdfSave: StateFlow<PendingPdfSave?> = _pendingPdfSave
+
+    private val _savingPendingPdf = MutableStateFlow(false)
+    val savingPendingPdf: StateFlow<Boolean> = _savingPendingPdf
+
     fun publish(files: List<SavedFile>) {
         if (files.isEmpty()) return
         scope.launch {
@@ -71,6 +90,45 @@ class AppCoordinator @Inject constructor(
     }
 
     fun dismissResults() { _results.value = null }
+
+    fun stagePdfSave(save: PendingPdfSave) {
+        _pendingPdfSave.value?.tempFile?.delete()
+        _pendingPdfSave.value = save
+    }
+
+    fun cancelPendingPdfSave() {
+        val current = _pendingPdfSave.value
+        _pendingPdfSave.value = null
+        current?.tempFile?.let { file -> scope.launch(Dispatchers.IO) { file.delete() } }
+    }
+
+    fun commitPendingPdfSave(rawFileName: String) {
+        val pending = _pendingPdfSave.value ?: return
+        if (_savingPendingPdf.value) return
+        _savingPendingPdf.value = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                val finalName = FileUtils.normalizePdfFilename(rawFileName, pending.defaultStem)
+                val saved = Storage.saveFile(
+                    ctx = appContext,
+                    kind = OutputKind.DOCUMENT,
+                    subFolder = null,
+                    displayName = finalName,
+                    mime = "application/pdf",
+                    tool = pending.toolName,
+                    source = pending.tempFile
+                )
+                pending.tempFile.delete()
+                _pendingPdfSave.value = null
+                pending.onSaved?.invoke(saved)
+                publish(listOf(saved))
+            } catch (e: Exception) {
+                pending.onFailed?.invoke(e.message ?: "Gagal menyimpan file PDF.")
+            } finally {
+                _savingPendingPdf.value = false
+            }
+        }
+    }
 
     fun receiveSharedUris(uris: List<Uri>) {
         if (uris.isEmpty()) return

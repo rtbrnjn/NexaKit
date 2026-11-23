@@ -14,9 +14,12 @@ import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.media.CanvasRatio
 import com.mediaforge.studio.media.CollageAspect
 import com.mediaforge.studio.media.CollageParams
+import com.mediaforge.studio.media.CollagePhotoMode
+import com.mediaforge.studio.media.CollageRatioCategory
 import com.mediaforge.studio.media.CollageRenderer
 import com.mediaforge.studio.media.CollageStyle
 import com.mediaforge.studio.media.CompressOptions
+import com.mediaforge.studio.media.DeviceFrameStyle
 import com.mediaforge.studio.media.ImageCompressor
 import com.mediaforge.studio.media.MaxDimension
 import com.mediaforge.studio.media.MockBackground
@@ -212,6 +215,7 @@ class MockupViewModel @Inject constructor(
 
     fun update(block: (MockupParams) -> MockupParams) = _params.update(block)
     fun setRatio(r: CanvasRatio) = update { it.copy(ratio = r) }
+    fun setFrameStyle(f: DeviceFrameStyle) = update { it.copy(frameStyle = f) }
     fun setBackground(b: MockBackground) = update { it.copy(background = b) }
 
     fun export() {
@@ -220,7 +224,7 @@ class MockupViewModel @Inject constructor(
         runTask("Rendering high-res mockup…", write = true) {
             val product = BitmapUtils.decode(ctx, src, 3000) ?: error("Could not open that image.")
             val out = MockupRenderer.render(product, p, 1440)
-            val name = "Mockup_${p.ratio.w}x${p.ratio.h}_${FileUtils.timestamp()}.png"
+            val name = "DocPix_Mockup_${p.ratio.w}x${p.ratio.h}_${FileUtils.timestamp()}.png"
             val saved = Storage.save(ctx, OutputKind.IMAGE, null, name, "image/png", "Mockup Studio") {
                 out.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
@@ -287,6 +291,13 @@ class CollageViewModel @Inject constructor(
     fun update(block: (CollageParams) -> CollageParams) = _params.update(block)
     fun setStyle(s: CollageStyle) = update { it.copy(style = s) }
     fun setAspect(a: CollageAspect) = update { it.copy(aspect = a) }
+    fun setPhotoMode(m: CollagePhotoMode) = update { it.copy(photoMode = m) }
+    fun setRatioCategory(cat: CollageRatioCategory) {
+        val current = _params.value.aspect
+        if (current.category == cat) return
+        val fallback = CollageAspect.entries.first { it.category == cat }
+        setAspect(fallback)
+    }
 
     fun export() {
         val uris = _photos.value
@@ -296,7 +307,7 @@ class CollageViewModel @Inject constructor(
             val bitmaps = uris.map { BitmapUtils.decode(ctx, it, 2400) ?: error("Could not open a selected photo.") }
             val out = CollageRenderer.render(bitmaps, p, 2160)
             bitmaps.forEach { it.recycle() }
-            val name = "Collage_${uris.size}up_${FileUtils.timestamp()}.png"
+            val name = "DocPix_Collage_${p.aspect.w}x${p.aspect.h}_${FileUtils.timestamp()}.png"
             val saved = Storage.save(ctx, OutputKind.IMAGE, null, name, "image/png", "Collage Maker") {
                 out.compress(Bitmap.CompressFormat.PNG, 100, it)
             }

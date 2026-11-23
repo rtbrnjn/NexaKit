@@ -138,7 +138,8 @@ fun PdfSuiteScreen(
     protectVm: ProtectPdfViewModel = viewModel(),
     unlockVm: UnlockPdfViewModel = viewModel(),
     requestedTool: PdfTool? = null,
-    onToolHandled: () -> Unit = {}
+    onToolHandled: () -> Unit = {},
+    isTabActive: Boolean = true
 ) {
     var activeTool by rememberSaveable { mutableStateOf<PdfTool?>(null) }
 
@@ -149,7 +150,7 @@ fun PdfSuiteScreen(
         }
     }
 
-    BackHandler(enabled = activeTool != null) { activeTool = null }
+    BackHandler(enabled = isTabActive && activeTool != null) { activeTool = null }
 
     AnimatedContent(
         targetState = activeTool,
