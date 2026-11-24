@@ -39,9 +39,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.Hint
+import com.mediaforge.studio.ui.components.RecentCreationsCard
 import com.mediaforge.studio.ui.components.horizontalCarouselScroll
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.UriImage
@@ -56,7 +58,9 @@ internal fun MediaUploadWelcome(
     topPadding: Dp,
     hazeState: HazeState?,
     onPickPhotos: () -> Unit,
-    onScanDocument: () -> Unit = {}
+    onScanDocument: () -> Unit = {},
+    recentFiles: List<SavedFile> = emptyList(),
+    onRemoveRecent: (SavedFile) -> Unit = {}
 ) {
     Column(
         Modifier
@@ -126,6 +130,11 @@ internal fun MediaUploadWelcome(
             onClick = onScanDocument
         )
 
+        RecentCreationsCard(
+            files = recentFiles,
+            onRemove = onRemoveRecent
+        )
+
         Hint("100% diproses luring di perangkat • Privasi EXIF/GPS terjaga")
     }
 }
@@ -138,7 +147,9 @@ internal fun MediaActionChooser(
     hazeState: HazeState?,
     onSelectTool: (MediaTool) -> Unit,
     onPickNewPhotos: () -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    recentFiles: List<SavedFile> = emptyList(),
+    onRemoveRecent: (SavedFile) -> Unit = {}
 ) {
     Column(
         Modifier
@@ -218,6 +229,11 @@ internal fun MediaActionChooser(
             icon = Icons.Rounded.AutoAwesomeMosaic,
             accent = Glass.Amber,
             onClick = { onSelectTool(MediaTool.COLLAGE) }
+        )
+
+        RecentCreationsCard(
+            files = recentFiles,
+            onRemove = onRemoveRecent
         )
     }
 }

@@ -24,7 +24,20 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
 
-enum class PdfPageMode(val label: String) { A4("A4"), FIT("Fit to image") }
+enum class PdfPageMode(val label: String) {
+    FIT("Sesuai Ukuran Foto"),
+    A4_PORTRAIT("A4 Portrait"),
+    A4_LANDSCAPE("A4 Landscape");
+
+    companion object {
+        fun fromStored(raw: String?): PdfPageMode = when (raw?.trim()?.uppercase()) {
+            "FIT" -> FIT
+            "A4_LANDSCAPE" -> A4_LANDSCAPE
+            "A4", "A4_PORTRAIT" -> A4_PORTRAIT
+            else -> A4_PORTRAIT
+        }
+    }
+}
 
 enum class PdfCompressPreset(val label: String, val detail: String, val dpi: Int, val jpegQuality: Float) {
     LOW("Low", "Smallest size • 85 DPI", 85, 0.45f),
@@ -65,6 +78,12 @@ object PdfEngine {
 
     // ---------------------------------------------------------------- Images → PDF
 
+    fun pageSizeFor(mode: PdfPageMode, bmpWidth: Int, bmpHeight: Int): Pair<Float, Float> = when (mode) {
+        PdfPageMode.A4_PORTRAIT -> PDRectangle.A4.width to PDRectangle.A4.height
+        PdfPageMode.A4_LANDSCAPE -> PDRectangle.A4.height to PDRectangle.A4.width
+        PdfPageMode.FIT -> (bmpWidth * 72f / 150f) to (bmpHeight * 72f / 150f)
+    }
+
     fun imagesToPdf(
         ctx: Context,
         images: List<Uri>,
@@ -82,14 +101,15 @@ object PdfEngine {
                 val xobj = JPEGFactory.createFromImage(doc, bmp, jpegQuality)
 
                 val margin = 18f
-                val rect: PDRectangle
+                val (pw, ph) = pageSizeFor(mode, bmp.width, bmp.height)
+                val rect = PDRectangle(pw, ph)
                 val x: Float
                 val y: Float
                 val dw: Float
                 val dh: Float
-                if (mode == PdfPageMode.A4) {
-                    val landscape = bmp.width > bmp.height
-                    rect = if (landscape) PDRectangle(PDRectangle.A4.height, PDRectangle.A4.width) else PDRectangle.A4
+                if (mode == PdfPageMode.FIT) {
+                    dw = pw; dh = ph; x = 0f; y = 0f
+                } else {
                     val availW = rect.width - margin * 2
                     val availH = rect.height - margin * 2
                     val s = minOf(availW / bmp.width, availH / bmp.height)
@@ -97,12 +117,6 @@ object PdfEngine {
                     dh = bmp.height * s
                     x = (rect.width - dw) / 2
                     y = (rect.height - dh) / 2
-                } else {
-                    // 150 dpi equivalent keeps pages a sensible physical size
-                    val pw = bmp.width * 72f / 150f
-                    val ph = bmp.height * 72f / 150f
-                    rect = PDRectangle(pw, ph)
-                    dw = pw; dh = ph; x = 0f; y = 0f
                 }
                 val page = PDPage(rect)
                 doc.addPage(page)

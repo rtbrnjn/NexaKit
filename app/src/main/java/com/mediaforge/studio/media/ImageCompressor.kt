@@ -21,8 +21,14 @@ enum class OutputFormat(val label: String, val ext: String, val mime: String) {
     JPEG("JPEG", "jpg", "image/jpeg")
 }
 
+enum class CompressionPreset(val label: String, val quality: Int) {
+    SMALL("Kecil 40%", 40),
+    BALANCED("Seimbang 70%", 70),
+    SHARP("Tajam 85%", 85)
+}
+
 data class CompressOptions(
-    val quality: Int = 80,
+    val quality: Int = 70,
     val maxDimension: MaxDimension = MaxDimension.P1080,
     val format: OutputFormat = OutputFormat.WEBP,
     val stripExif: Boolean = true

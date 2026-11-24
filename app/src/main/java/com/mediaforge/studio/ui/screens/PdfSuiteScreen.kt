@@ -60,9 +60,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
 import com.mediaforge.studio.ui.components.LocalHazeState
+import com.mediaforge.studio.ui.components.RecentCreationsCard
 import com.mediaforge.studio.ui.screens.pdf.CompressPdfScreen
 import com.mediaforge.studio.ui.screens.pdf.DocumentScannerScreen
 import com.mediaforge.studio.ui.screens.pdf.EditPdfScreen
@@ -139,7 +141,9 @@ fun PdfSuiteScreen(
     unlockVm: UnlockPdfViewModel = viewModel(),
     requestedTool: PdfTool? = null,
     onToolHandled: () -> Unit = {},
-    isTabActive: Boolean = true
+    isTabActive: Boolean = true,
+    recentFiles: List<SavedFile> = emptyList(),
+    onRemoveRecent: (SavedFile) -> Unit = {}
 ) {
     var activeTool by rememberSaveable { mutableStateOf<PdfTool?>(null) }
 
@@ -161,7 +165,11 @@ fun PdfSuiteScreen(
         label = "pdfToolTransition"
     ) { tool ->
         when (tool) {
-            null -> PdfHubGrid(onSelect = { activeTool = it })
+            null -> PdfHubGrid(
+                onSelect = { activeTool = it },
+                recentFiles = recentFiles,
+                onRemoveRecent = onRemoveRecent
+            )
             PdfTool.SCAN_DOCUMENT -> DocumentScannerScreen(scannerVm, onBack = { activeTool = null })
             PdfTool.PDF_TO_WORD -> PdfToDocxScreen(pdfToDocxVm, onBack = { activeTool = null })
             PdfTool.WORD_TO_PDF -> TextToPdfScreen(textToPdfVm, onBack = { activeTool = null })
@@ -180,7 +188,11 @@ fun PdfSuiteScreen(
 }
 
 @Composable
-private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
+private fun PdfHubGrid(
+    onSelect: (PdfTool) -> Unit,
+    recentFiles: List<SavedFile>,
+    onRemoveRecent: (SavedFile) -> Unit
+) {
     val chromeHaze = LocalHazeState.current
     var headerHeightPx by remember { mutableIntStateOf(0) }
     val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 10.dp
@@ -222,6 +234,11 @@ private fun PdfHubGrid(onSelect: (PdfTool) -> Unit) {
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
+
+            RecentCreationsCard(
+                files = recentFiles,
+                onRemove = onRemoveRecent
+            )
         }
 
         LiquidGlassTopHeader(

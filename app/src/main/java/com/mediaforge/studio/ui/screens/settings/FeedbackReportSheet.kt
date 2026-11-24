@@ -52,6 +52,7 @@ import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.SectionLabel
+import com.mediaforge.studio.ui.components.plainGlassSheetColor
 import com.mediaforge.studio.ui.theme.Glass
 
 internal enum class FeedbackKind(val label: String, val icon: ImageVector, val ghLabel: String) {
@@ -127,7 +128,7 @@ internal fun FeedbackReportSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Glass.Surface,
+        containerColor = plainGlassSheetColor(),
         contentColor = Glass.TextPrimary,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {

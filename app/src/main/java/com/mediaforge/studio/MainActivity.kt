@@ -52,13 +52,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -109,6 +112,8 @@ import com.mediaforge.studio.vm.UnlockPdfViewModel
 import com.mediaforge.studio.vm.WatermarkPdfViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -183,6 +188,7 @@ private fun MediaForgeRoot(
     coordinator: AppCoordinator
 ) {
     val ctx = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
     val backdropHazeState = rememberHazeState()
@@ -221,6 +227,8 @@ private fun MediaForgeRoot(
     val shareDispatch by coordinator.shareDispatch.collectAsState()
     val pendingPdfSave by coordinator.pendingPdfSave.collectAsState()
     val savingPendingPdf by coordinator.savingPendingPdf.collectAsState()
+    val completionHapticTick by coordinator.completionHapticTick.collectAsState()
+    val recentFiles by settingsVm.history.collectAsState()
     val showUpdateDialog by settingsVm.showUpdateDialog.collectAsState()
     val availableUpdate by settingsVm.availableUpdate.collectAsState()
 
@@ -234,6 +242,21 @@ private fun MediaForgeRoot(
             permLauncher.launch(Permissions.required())
         }
         settingsVm.checkForUpdates(userInitiated = false)
+    }
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+    }
+
+    LaunchedEffect(completionHapticTick) {
+        if (completionHapticTick > 0L) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
     }
 
     fun navigateTo(tab: TopTab) {
@@ -335,7 +358,9 @@ private fun MediaForgeRoot(
                                 requestedPdfTool = PdfTool.SCAN_DOCUMENT
                                 navigateTo(TopTab.PDF_SUITE)
                             },
-                            isTabActive = pagerState.currentPage == TopTab.MEDIA_LAB.ordinal
+                            isTabActive = pagerState.currentPage == TopTab.MEDIA_LAB.ordinal,
+                            recentFiles = recentFiles,
+                            onRemoveRecent = { settingsVm.forget(it, deleteFile = false) }
                         )
                         TopTab.PDF_SUITE -> PdfSuiteScreen(
                             scannerVm = scannerVm,
@@ -353,7 +378,9 @@ private fun MediaForgeRoot(
                             unlockVm = unlockVm,
                             requestedTool = requestedPdfTool,
                             onToolHandled = { requestedPdfTool = null },
-                            isTabActive = pagerState.currentPage == TopTab.PDF_SUITE.ordinal
+                            isTabActive = pagerState.currentPage == TopTab.PDF_SUITE.ordinal,
+                            recentFiles = recentFiles,
+                            onRemoveRecent = { settingsVm.forget(it, deleteFile = false) }
                         )
                         TopTab.GEMINI_AI -> GeminiAiScreen(
                             settingsVm = settingsVm,

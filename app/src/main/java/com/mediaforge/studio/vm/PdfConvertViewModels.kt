@@ -130,7 +130,7 @@ class ImagesToPdfViewModel @Inject constructor(
 ) : ToolViewModel(app, coordinator) {
     private val _images = MutableStateFlow<List<ImageEntry>>(emptyList())
     val images: StateFlow<List<ImageEntry>> = _images
-    private val _mode = MutableStateFlow(PdfPageMode.A4)
+    private val _mode = MutableStateFlow(PdfPageMode.A4_PORTRAIT)
     val mode: StateFlow<PdfPageMode> = _mode
     private val _quality = MutableStateFlow(85)
     val quality: StateFlow<Int> = _quality

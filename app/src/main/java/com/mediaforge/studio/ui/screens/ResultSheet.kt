@@ -45,6 +45,7 @@ import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.UriImage
+import com.mediaforge.studio.ui.components.plainGlassSheetColor
 import com.mediaforge.studio.ui.theme.Glass
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,9 +60,9 @@ fun ResultSheet(files: List<SavedFile>?, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Glass.Surface,
+        containerColor = plainGlassSheetColor(),
         contentColor = Glass.TextPrimary,
-        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
             Modifier
@@ -75,8 +76,8 @@ fun ResultSheet(files: List<SavedFile>?, onDismiss: () -> Unit) {
                     Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Glass.Emerald.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f))
-                        .border(1.dp, Glass.Emerald.copy(alpha = 0.4f), CircleShape),
+                        .background(Glass.CardFill)
+                        .border(1.dp, Glass.Stroke, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Rounded.CheckCircle, null, tint = Glass.Emerald, modifier = Modifier.size(22.dp))

@@ -92,7 +92,7 @@ class SettingsViewModel @Inject constructor(
     val models: StateFlow<List<String>> = settings.knownModels.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_MODELS)
     val autoShow: StateFlow<Boolean> = settings.autoShowResults.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val defaultQuality: StateFlow<Int> = settings.defaultQuality.stateIn(viewModelScope, SharingStarted.Eagerly, 80)
-    val defaultPdfPageMode: StateFlow<PdfPageMode> = settings.defaultPdfPageMode.stateIn(viewModelScope, SharingStarted.Eagerly, PdfPageMode.A4)
+    val defaultPdfPageMode: StateFlow<PdfPageMode> = settings.defaultPdfPageMode.stateIn(viewModelScope, SharingStarted.Eagerly, PdfPageMode.A4_PORTRAIT)
     val autoStripExif: StateFlow<Boolean> = settings.autoStripExif.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val totalBytesSaved: StateFlow<Long> = settings.totalBytesSaved.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
     val history: StateFlow<List<SavedFile>> = historyStore.entries.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

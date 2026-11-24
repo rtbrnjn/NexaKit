@@ -116,8 +116,7 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
 
     val defaultQuality: Flow<Int> = ds.data.map { (it[DEFAULT_QUALITY] ?: 80).coerceIn(10, 95) }
     val defaultPdfPageMode: Flow<PdfPageMode> = ds.data.map { prefs ->
-        val raw = prefs[DEFAULT_PDF_PAGE_MODE] ?: PdfPageMode.A4.name
-        runCatching { PdfPageMode.valueOf(raw) }.getOrDefault(PdfPageMode.A4)
+        PdfPageMode.fromStored(prefs[DEFAULT_PDF_PAGE_MODE])
     }
     val autoStripExif: Flow<Boolean> = ds.data.map { it[AUTO_STRIP_EXIF] ?: true }
     val totalBytesSaved: Flow<Long> = ds.data.map { (it[TOTAL_BYTES_SAVED] ?: 0L).coerceAtLeast(0L) }

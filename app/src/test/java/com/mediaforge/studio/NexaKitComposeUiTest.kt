@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -61,17 +62,19 @@ class NexaKitMainNavigationUiTest {
 
     @Test
     fun bottomBarUploadFirstFlowAndFeedbackSheet_workEndToEnd() {
-        // 1. Starts on clean upload-first Media Lab without tool menu clutter (includes Document Scanner shortcut)
+        // 1. Starts on clean upload-first Media Lab without tool menu clutter (includes Document Scanner shortcut & Recent Creations)
         composeRule.onNodeWithText("DocPix · Media Lab").assertIsDisplayed()
         composeRule.onNodeWithText("Unggah Foto untuk Memulai").assertIsDisplayed()
         composeRule.onNodeWithText("Pilih Foto dari Galeri").assertIsDisplayed()
         composeRule.onNodeWithText("Scan Dokumen (Kamera)").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Recent Creations")[0].performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Compression Settings").assertDoesNotExist()
 
         // 2. Test HorizontalPager swipe left/right between tabs as well as bottom bar tap
         composeRule.onRoot().performTouchInput { swipeLeft() }
         composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
         composeRule.onNodeWithText("Scan Document").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Recent Creations")[1].performScrollTo().assertIsDisplayed()
 
         composeRule.onRoot().performTouchInput { swipeLeft() }
         composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
@@ -92,7 +95,7 @@ class NexaKitMainNavigationUiTest {
         // 4. Navigate to Settings, verify About DocPix + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("DocPix v1.4.3 (Build 10)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.4 (Build 11)").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithText("Cara Mendapatkan API Key Gratis?").performScrollTo().performClick()
@@ -332,5 +335,39 @@ class LiquidGlassComponentsUiTest {
         composeRule.waitForIdle()
         org.junit.Assert.assertEquals(1, settledPage)
         org.junit.Assert.assertFalse(coord.isLocked)
+    }
+
+    @Test
+    fun recentCreationsCard_capsAtFiveItemsAndTriggersRemoveCallback() {
+        val items = (1..7).map { idx ->
+            com.mediaforge.studio.core.SavedFile(
+                uri = android.net.Uri.parse("content://com.mediaforge.studio.fileprovider/doc/$idx"),
+                name = "DocPix_File_$idx.pdf",
+                mime = "application/pdf",
+                sizeBytes = idx * 1024L * 100L,
+                folder = "Documents/DocPix",
+                tool = "Merge PDFs",
+                timestamp = 1_795_000_000_000L + idx * 60_000L
+            )
+        }
+        var removed: com.mediaforge.studio.core.SavedFile? = null
+
+        composeRule.setContent {
+            MediaForgeTheme(themeMode = ThemeMode.DARK) {
+                com.mediaforge.studio.ui.components.RecentCreationsCard(
+                    files = items,
+                    onRemove = { removed = it }
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Recent Creations").assertIsDisplayed()
+        composeRule.onNodeWithText("5 terakhir").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix_File_1.pdf").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix_File_5.pdf").assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix_File_6.pdf").assertDoesNotExist()
+
+        composeRule.onNodeWithContentDescription("Hapus DocPix_File_1.pdf dari riwayat").performClick()
+        org.junit.Assert.assertEquals("DocPix_File_1.pdf", removed?.name)
     }
 }

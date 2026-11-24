@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.IncomingShare
 import com.mediaforge.studio.ShareAction
 import com.mediaforge.studio.ui.components.GlassCard
+import com.mediaforge.studio.ui.components.plainGlassSheetColor
 import com.mediaforge.studio.ui.theme.Glass
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,9 +59,9 @@ fun ShareIntakeSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Glass.Surface,
+        containerColor = plainGlassSheetColor(),
         contentColor = Glass.TextPrimary,
-        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
             Modifier
@@ -74,11 +75,11 @@ fun ShareIntakeSheet(
                     Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f))
-                        .border(1.dp, Glass.Cyan.copy(alpha = 0.4f), CircleShape),
+                        .background(Glass.CardFill)
+                        .border(1.dp, Glass.Stroke, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Share, null, tint = Glass.Cyan, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.Share, null, tint = Glass.TextPrimary, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {

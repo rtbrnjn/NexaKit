@@ -29,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +46,7 @@ import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.liquidGlassChrome
+import com.mediaforge.studio.ui.components.plainGlassSheetColor
 import com.mediaforge.studio.ui.theme.Glass
 
 @Composable
@@ -55,6 +58,7 @@ fun PdfRenameDialog(
 ) {
     if (pending == null) return
 
+    val haptics = LocalHapticFeedback.current
     var fileName by remember(pending.id) { mutableStateOf(pending.defaultStem) }
     val resolvedName = FileUtils.normalizePdfFilename(fileName, pending.defaultStem)
     val folderPath = Storage.folderPath(OutputKind.DOCUMENT)
@@ -72,6 +76,7 @@ fun PdfRenameDialog(
                     shape = shape,
                     blurRadius = 28.dp,
                     shadowElevation = 24.dp,
+                    tintColor = plainGlassSheetColor(),
                     strongBorder = true
                 )
                 .padding(20.dp),
@@ -82,7 +87,7 @@ fun PdfRenameDialog(
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Glass.CardFillSubtle)
+                        .background(Glass.CardFill)
                         .border(1.dp, Glass.Stroke, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -113,7 +118,10 @@ fun PdfRenameDialog(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    if (!saving) onConfirm(fileName)
+                    if (!saving) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onConfirm(fileName)
+                    }
                 }),
                 trailing = {
                     Text(
@@ -129,7 +137,7 @@ fun PdfRenameDialog(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Glass.CardFillSubtle)
+                    .background(Glass.CardFill)
                     .border(1.dp, Glass.Stroke, RoundedCornerShape(14.dp))
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -152,7 +160,10 @@ fun PdfRenameDialog(
                     text = "Batal",
                     primary = false,
                     enabled = !saving,
-                    onClick = onDismiss,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onDismiss()
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 GlassButton(
@@ -160,7 +171,10 @@ fun PdfRenameDialog(
                     icon = Icons.Rounded.Download,
                     primary = true,
                     enabled = !saving,
-                    onClick = { onConfirm(fileName) },
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onConfirm(fileName)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }

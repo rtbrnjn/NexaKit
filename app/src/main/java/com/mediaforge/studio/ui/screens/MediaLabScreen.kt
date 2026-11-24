@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.GlassSegmentedBar
 import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
@@ -76,7 +77,9 @@ fun MediaLabScreen(
     requestedTool: MediaTool? = null,
     onToolHandled: () -> Unit = {},
     onScanDocument: () -> Unit = {},
-    isTabActive: Boolean = true
+    isTabActive: Boolean = true,
+    recentFiles: List<SavedFile> = emptyList(),
+    onRemoveRecent: (SavedFile) -> Unit = {}
 ) {
     var active by rememberSaveable { mutableStateOf<MediaTool?>(null) }
     val chromeHaze = LocalHazeState.current
@@ -155,13 +158,17 @@ fun MediaLabScreen(
                     hazeState = chromeHaze,
                     onSelectTool = { active = it },
                     onPickNewPhotos = { uploadPicker.launch("image/*") },
-                    onReset = ::resetWorkspace
+                    onReset = ::resetWorkspace,
+                    recentFiles = recentFiles,
+                    onRemoveRecent = onRemoveRecent
                 )
                 else -> MediaUploadWelcome(
                     topPadding = topPadding,
                     hazeState = chromeHaze,
                     onPickPhotos = { uploadPicker.launch("image/*") },
-                    onScanDocument = onScanDocument
+                    onScanDocument = onScanDocument,
+                    recentFiles = recentFiles,
+                    onRemoveRecent = onRemoveRecent
                 )
             }
         }

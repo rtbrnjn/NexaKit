@@ -6,19 +6,25 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ---
 
-## Download & Install APK (`v1.4.3`)
+## Download & Install APK (`v1.4.4`)
 
-- **Direct Download (`v1.4.3`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.3/DocPix.apk)
+- **Direct Download (`v1.4.4`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.4/DocPix.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `DocPix.apk` dari halaman Releases di atas.
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
+3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.3** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
 
 ---
 
-## What's New in v1.4.3 ("PDF Rename Dialog, Swipe Navigation, Multi-Ratio Collage & Modern Device Mockups")
+## What's New in v1.4.4 ("Recent Creations, Image-to-PDF Reorder & Orientasi, Preset Kompresi & Haptic Feedback")
+- **Daftar File Terakhir (*Recent Creations*) di Media Lab & PDF Suite:** Kartu kaca ringkas di bagian bawah Media Lab dan PDF Suite yang menampilkan hingga 5 file terakhir beserta ukuran dan waktu pembuatan, lengkap dengan tombol ikon cepat untuk **Buka file** (`Intent.ACTION_VIEW` via `FileProvider`), **Bagikan file** (`Intent.ACTION_SEND`), atau hapus dari riwayat.
+- **Pengaturan Urutan Foto & Orientasi Halaman Image-to-PDF:** Pratinjau bernomor urut (`1, 2, 3…`) dengan tombol panah naik/turun untuk mengatur urutan halaman serta pilihan ukuran/orientasi ringkas (**Sesuai Ukuran Foto**, **A4 Portrait**, **A4 Landscape**) sebelum dialog rename & simpan PDF.
+- **Preset Kompresi Cepat & Sakelar Hapus EXIF di Media Lab:** Tiga tombol *Liquid Glass Pill* cepat (**Kecil 40%**, **Seimbang 70%**, **Tajam 85%**) di atas slider kualitas Compressor beserta sakelar **Strip EXIF Metadata** (aktif secara default) untuk menghapus lokasi GPS & metadata kamera.
+- **Audit Konsistensi *Liquid Glass* Polos & *Haptic Feedback*:** Penyeragaman permukaan kaca transparan polos (`alpha = 0.06f` Dark / `0.70f` Light, border tipis `1.dp` monokromatik tanpa gradasi mencolok) pada kartu, dialog rename, dropdown AI model, dan modal sheet, ditambah `LocalHapticFeedback` ringan saat berpindah halaman via swipe/navbar maupun saat proses kompresi/PDF selesai.
+
+## Highlights in v1.4.3 ("PDF Rename Dialog, Swipe Navigation, Multi-Ratio Collage & Modern Device Mockups")
 - **Opsi Rename File PDF Sebelum Simpan (PDF Suite):** Seluruh pemroses PDF (Merge, Split, Compress, Images to PDF, Document Scanner ke PDF, Word to PDF, Rotate & Delete, Page Numbers, Watermark, Protect, dan Unlock) kini menampilkan **Liquid Glass Rename Dialog** pre-terisi rapi (mis. `DocPix_Merged_20261123`) beserta penambahan otomatis `.pdf` sebelum disimpan ke `Documents/DocPix`.
 - **Navigasi Swipe / Slide Antar Menu (`HorizontalPager`):** Pindah mulus antar **Media Lab**, **PDF Suite**, **AI Studio**, dan **Settings** dengan geser kiri/kanan, sinkronisasi 1:1 pada *sliding pill* indikator dock bawah, serta proteksi **Anti-Bentrok Gesture** agar seret slider kualitas/radius dan strip horizontal tidak memicu perpindahan tab utama secara tidak sengaja.
 - **Kolase / Grid Foto Multi-Rasio & Mode Fit/Fill:** Dukungan penuh **Square (`1:1`)**, **Portrait (`4:5` & `9:16`)**, dan **Landscape (`16:9` & `4:3`)** lewat *Liquid Glass Pill Selector*, plus opsi **Fill (Penuh)** vs **Fit (Utuh)** tanpa pemotongan paksa, kontrol *Grid Spacing* dan *Corner Radius*.

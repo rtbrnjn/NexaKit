@@ -69,22 +69,19 @@ val LocalHazeState = compositionLocalOf<HazeState?> { null }
 val LocalBackdropHazeState = compositionLocalOf<HazeState?> { null }
 
 @Composable
+fun plainGlassSheetColor(isDark: Boolean = Glass.IsDark): Color =
+    if (isDark) Color(0xF211151E) else Color(0xF5F4F6F9)
+
+@Composable
+fun plainGlassBorderColor(isDark: Boolean = Glass.IsDark, strong: Boolean = false): Color =
+    if (isDark) Color.White.copy(alpha = if (strong) 0.16f else 0.12f)
+    else Color(0xFF0F172A).copy(alpha = if (strong) 0.13f else 0.09f)
+
+@Composable
 fun diagonalGlassBorder(isDark: Boolean = Glass.IsDark, strong: Boolean = false): Brush {
-    val startAlpha = when {
-        isDark && strong -> 0.22f
-        isDark -> 0.14f
-        strong -> 0.92f
-        else -> 0.72f
-    }
-    val endAlpha = if (isDark) 0.10f else 0.16f
-    val startColor = if (isDark) Color.White else Color(0xFFCBD5E1)
-    val endColor = if (isDark) Color.White else Color(0xFF94A3B8)
-    return remember(isDark, strong) {
-        Brush.linearGradient(
-            colors = listOf(startColor.copy(alpha = startAlpha), endColor.copy(alpha = endAlpha)),
-            start = Offset.Zero,
-            end = Offset.Infinite
-        )
+    val stroke = plainGlassBorderColor(isDark = isDark, strong = strong)
+    return remember(stroke) {
+        Brush.linearGradient(colors = listOf(stroke, stroke))
     }
 }
 
@@ -188,17 +185,7 @@ fun Modifier.liquidGlassChrome(
     } else {
         base.background(tintColor)
     }
-    return frosted
-        .drawBehind {
-            drawRect(
-                Brush.verticalGradient(
-                    colors = listOf(Color.White.copy(alpha = if (isDark) 0.14f else 0.50f), Color.Transparent),
-                    startY = 0f,
-                    endY = 18.dp.toPx()
-                )
-            )
-        }
-        .border(1.dp, borderBrush, shape)
+    return frosted.border(1.dp, borderBrush, shape)
 }
 
 /** Floating frosted glass top header matching the Liquid Glass dock aesthetic. */
@@ -385,15 +372,7 @@ fun LiquidGlassCard(
         m.background(cardFill)
     }
 
-    m = m.drawBehind {
-        drawRect(
-            Brush.verticalGradient(
-                colors = listOf(Color.White.copy(alpha = if (isDark) 0.05f else 0.35f), Color.Transparent),
-                startY = 0f,
-                endY = 16.dp.toPx()
-            )
-        )
-    }.border(1.dp, borderBrush, shape)
+    m = m.border(1.dp, borderBrush, shape)
 
     if (onClick != null) {
         m = m.clickable(interactionSource = interaction, indication = null, onClick = onClick)

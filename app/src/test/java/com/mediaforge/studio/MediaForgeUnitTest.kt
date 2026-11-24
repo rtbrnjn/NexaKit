@@ -18,6 +18,8 @@ import com.mediaforge.studio.media.CollageAspect
 import com.mediaforge.studio.media.CollagePhotoMode
 import com.mediaforge.studio.media.CollageRatioCategory
 import com.mediaforge.studio.media.CollageRenderer
+import com.mediaforge.studio.media.CompressOptions
+import com.mediaforge.studio.media.CompressionPreset
 import com.mediaforge.studio.media.DeviceFrameStyle
 import com.mediaforge.studio.media.MockupRenderer
 import com.mediaforge.studio.media.STUDIO_SOLID_PRESETS
@@ -26,6 +28,7 @@ import com.mediaforge.studio.pdf.LocalOcrEngine
 import com.mediaforge.studio.pdf.PdfCompressPreset
 import com.mediaforge.studio.pdf.PdfEngine
 import com.mediaforge.studio.pdf.PdfException
+import com.mediaforge.studio.pdf.PdfPageMode
 import com.mediaforge.studio.ui.screens.settings.FeedbackKind
 import com.mediaforge.studio.ui.screens.settings.FeedbackReportFormatter
 import com.mediaforge.studio.vm.ExtractDepth
@@ -303,5 +306,34 @@ class MediaForgeUnitTest {
 
         relB()
         assertFalse(coord.isLocked)
+    }
+
+    @Test
+    fun imageToPdfPageModesAndCompressorPresets_matchV144Specs() {
+        assertEquals(
+            listOf("Sesuai Ukuran Foto", "A4 Portrait", "A4 Landscape"),
+            PdfPageMode.entries.map { it.label }
+        )
+        assertEquals(PdfPageMode.A4_PORTRAIT, PdfPageMode.fromStored("A4"))
+        assertEquals(PdfPageMode.A4_LANDSCAPE, PdfPageMode.fromStored("A4_LANDSCAPE"))
+        assertEquals(PdfPageMode.FIT, PdfPageMode.fromStored("FIT"))
+        assertEquals(PdfPageMode.A4_PORTRAIT, PdfPageMode.fromStored(null))
+
+        val (pw, ph) = PdfEngine.pageSizeFor(PdfPageMode.A4_PORTRAIT, 1200, 800)
+        val (lw, lh) = PdfEngine.pageSizeFor(PdfPageMode.A4_LANDSCAPE, 1200, 800)
+        assertTrue(ph > pw)
+        assertTrue(lw > lh)
+        assertEquals(pw, lh, 0.01f)
+        assertEquals(ph, lw, 0.01f)
+
+        val (fw, fh) = PdfEngine.pageSizeFor(PdfPageMode.FIT, 1500, 750)
+        assertEquals(720f, fw, 0.01f)
+        assertEquals(360f, fh, 0.01f)
+
+        assertEquals(
+            listOf("Kecil 40%" to 40, "Seimbang 70%" to 70, "Tajam 85%" to 85),
+            CompressionPreset.entries.map { it.label to it.quality }
+        )
+        assertTrue(CompressOptions().stripExif)
     }
 }

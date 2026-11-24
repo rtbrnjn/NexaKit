@@ -81,8 +81,13 @@ class AppCoordinator @Inject constructor(
     private val _savingPendingPdf = MutableStateFlow(false)
     val savingPendingPdf: StateFlow<Boolean> = _savingPendingPdf
 
+    private val _completionHapticTick = MutableStateFlow(0L)
+    /** Increments whenever an export or PDF processing operation completes for haptic confirmation. */
+    val completionHapticTick: StateFlow<Long> = _completionHapticTick
+
     fun publish(files: List<SavedFile>) {
         if (files.isEmpty()) return
+        _completionHapticTick.value += 1L
         scope.launch {
             history.add(files)
             if (settings.autoShowResults.first()) _results.value = files
@@ -94,6 +99,7 @@ class AppCoordinator @Inject constructor(
     fun stagePdfSave(save: PendingPdfSave) {
         _pendingPdfSave.value?.tempFile?.delete()
         _pendingPdfSave.value = save
+        _completionHapticTick.value += 1L
     }
 
     fun cancelPendingPdfSave() {

@@ -39,6 +39,7 @@ import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.liquidGlassChrome
+import com.mediaforge.studio.ui.components.plainGlassSheetColor
 import com.mediaforge.studio.ui.theme.Glass
 
 @Composable
@@ -62,6 +63,7 @@ fun AppUpdateDialog(
                     shape = shape,
                     blurRadius = 28.dp,
                     shadowElevation = 24.dp,
+                    tintColor = plainGlassSheetColor(),
                     strongBorder = true
                 )
                 .padding(20.dp),
@@ -72,7 +74,7 @@ fun AppUpdateDialog(
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Glass.CardFillSubtle)
+                        .background(Glass.CardFill)
                         .border(1.dp, Glass.Stroke, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -100,7 +102,7 @@ fun AppUpdateDialog(
                     .fillMaxWidth()
                     .heightIn(max = 220.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Glass.CardFillSubtle)
+                    .background(Glass.CardFill)
                     .border(1.dp, Glass.Stroke, RoundedCornerShape(16.dp))
                     .verticalScroll(rememberScrollState())
                     .padding(14.dp)

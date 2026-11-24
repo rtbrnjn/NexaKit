@@ -234,25 +234,30 @@ fun GlassChip(
 ) {
     val shape = RoundedCornerShape(50)
     val isDark = Glass.IsDark
+    val fill = when {
+        selected && isDark -> Color.White.copy(alpha = 0.15f)
+        selected -> Color(0xFF0F172A).copy(alpha = 0.10f)
+        else -> Glass.CardFill
+    }
+    val stroke = when {
+        selected && isDark -> Color.White.copy(alpha = 0.28f)
+        selected -> Color(0xFF0F172A).copy(alpha = 0.22f)
+        else -> Glass.Stroke
+    }
     Box(
         modifier
             .clip(shape)
-            .background(
-                if (selected) color.copy(alpha = if (isDark) 0.22f else 0.15f)
-                else Glass.CardFillSubtle
-            )
-            .then(
-                if (selected) Modifier.border(1.dp, color.copy(alpha = 0.55f), shape)
-                else Modifier
-            )
+            .background(fill)
+            .border(1.dp, stroke, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 13.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text,
             maxLines = 1,
-            color = if (selected) (if (isDark) Color.White else color) else Glass.TextSecondary,
+            overflow = TextOverflow.Ellipsis,
+            color = if (selected) Glass.TextPrimary else Glass.TextSecondary,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
         )

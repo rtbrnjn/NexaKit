@@ -2,7 +2,10 @@ package com.mediaforge.studio.ui.screens.pdf
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
@@ -31,6 +35,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.pdf.PdfPageMode
@@ -206,6 +213,7 @@ internal fun ImagesToPdfScreen(vm: ImagesToPdfViewModel, onBack: () -> Unit) {
     val quality by vm.quality.collectAsState()
     val progress by vm.progress.collectAsState()
     val message by vm.message.collectAsState()
+    val haptics = LocalHapticFeedback.current
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) vm.add(uris)
@@ -213,7 +221,7 @@ internal fun ImagesToPdfScreen(vm: ImagesToPdfViewModel, onBack: () -> Unit) {
 
     ToolPage(
         title = "Images to PDF",
-        subtitle = "Saves to Documents/DocPix",
+        subtitle = "Urutkan foto, pilih ukuran halaman & simpan ke Documents/DocPix",
         progress = progress,
         message = message,
         onDismissMessage = vm::dismissMessage,
@@ -221,46 +229,101 @@ internal fun ImagesToPdfScreen(vm: ImagesToPdfViewModel, onBack: () -> Unit) {
     ) {
         if (images.isEmpty()) {
             EmptyPicker(
-                title = "Select Images",
-                subtitle = "Multi-select photos and arrange page order",
+                title = "Pilih Beberapa Foto",
+                subtitle = "Susun urutan halaman (1, 2, 3…) sebelum dijadikan PDF",
                 icon = Icons.Rounded.AddPhotoAlternate,
                 onClick = { picker.launch("image/*") }
             )
         } else {
             GlassCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${images.size} page(s) ready", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary, modifier = Modifier.weight(1f))
-                    GlassButton("Add", icon = Icons.Rounded.AddPhotoAlternate, primary = false, compact = true, onClick = { picker.launch("image/*") })
+                    Column(Modifier.weight(1f)) {
+                        Text("${images.size} halaman siap disusun", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                        Hint("Gunakan tombol panah naik/turun untuk mengatur urutan")
+                    }
+                    GlassButton("Tambah", icon = Icons.Rounded.AddPhotoAlternate, primary = false, compact = true, onClick = { picker.launch("image/*") })
                     Spacer(Modifier.width(8.dp))
-                    GlassButton("Clear", icon = Icons.Rounded.DeleteSweep, primary = false, compact = true, onClick = vm::clear)
+                    GlassButton("Hapus", icon = Icons.Rounded.DeleteSweep, primary = false, compact = true, onClick = vm::clear)
                 }
             }
 
             images.forEachIndexed { i, entry ->
                 GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${i + 1}", style = MaterialTheme.typography.labelLarge, color = Glass.Cyan, modifier = Modifier.width(26.dp))
+                        Box(
+                            Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Glass.CardFillSubtle)
+                                .border(1.dp, Glass.Stroke, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${i + 1}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Glass.TextPrimary
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
                         UriImage(entry.uri, Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), maxDim = 180)
                         Spacer(Modifier.width(12.dp))
-                        Text(entry.name, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        GlassIconButton(Icons.Rounded.ArrowUpward, "Up", { vm.move(i, -1) }, enabled = i > 0)
-                        GlassIconButton(Icons.Rounded.ArrowDownward, "Down", { vm.move(i, 1) }, enabled = i < images.lastIndex)
-                        GlassIconButton(Icons.Rounded.Close, "Remove", { vm.remove(i) })
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                entry.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Glass.TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                "Halaman ${i + 1}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Glass.TextSecondary
+                            )
+                        }
+                        GlassIconButton(
+                            Icons.Rounded.ArrowUpward,
+                            "Pindah ke atas",
+                            {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                vm.move(i, -1)
+                            },
+                            enabled = i > 0
+                        )
+                        GlassIconButton(
+                            Icons.Rounded.ArrowDownward,
+                            "Pindah ke bawah",
+                            {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                vm.move(i, 1)
+                            },
+                            enabled = i < images.lastIndex
+                        )
+                        GlassIconButton(Icons.Rounded.Close, "Hapus foto", { vm.remove(i) })
                     }
                 }
             }
         }
 
         GlassCard(Modifier.fillMaxWidth()) {
-            SectionLabel("Page Size")
-            Spacer(Modifier.height(6.dp))
-            ChoiceRow(PdfPageMode.entries, mode, { it.label }, vm::setMode)
+            SectionLabel("Ukuran & Orientasi Halaman")
+            Spacer(Modifier.height(8.dp))
+            ChoiceRow(
+                options = PdfPageMode.entries,
+                selected = mode,
+                label = { it.label },
+                onSelect = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    vm.setMode(it)
+                }
+            )
             Spacer(Modifier.height(10.dp))
-            LabeledSlider("Image Quality", "$quality%", quality.toFloat(), 45f..100f, { vm.setQuality(it.toInt()) })
+            LabeledSlider("Kualitas Gambar", "$quality%", quality.toFloat(), 45f..100f, { vm.setQuality(it.toInt()) })
         }
 
         GlassButton(
-            text = "Create PDF (${images.size} pages)",
+            text = "Buat PDF (${images.size} halaman)",
             icon = Icons.Rounded.Download,
             enabled = images.isNotEmpty(),
             onClick = vm::export,

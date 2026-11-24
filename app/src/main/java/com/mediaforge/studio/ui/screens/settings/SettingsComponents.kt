@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -82,7 +83,8 @@ import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.GlassSegmentedBar
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
-import com.mediaforge.studio.ui.components.diagonalGlassBorder
+import com.mediaforge.studio.ui.components.plainGlassBorderColor
+import com.mediaforge.studio.ui.components.plainGlassSheetColor
 import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.ConnectionState
 
@@ -229,7 +231,7 @@ internal fun ApiKeyTutorialSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Glass.Surface,
+        containerColor = plainGlassSheetColor(),
         contentColor = Glass.TextPrimary,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
@@ -345,13 +347,14 @@ internal fun ThemePillSelector(
     val selectedIndex = modes.indexOf(themeMode).coerceAtLeast(0)
     val isDark = Glass.IsDark
     val pillShape = RoundedCornerShape(50)
-    val borderBrush = diagonalGlassBorder(isDark = isDark, strong = true)
+    val borderColor = plainGlassBorderColor(isDark = isDark, strong = true)
 
     BoxWithConstraints(
         Modifier
             .fillMaxWidth()
             .clip(pillShape)
-            .background(Glass.CardFillSubtle)
+            .background(Glass.CardFill)
+            .border(1.dp, Glass.Stroke, pillShape)
             .padding(4.dp)
     ) {
         val tabWidth = maxWidth / modes.size
@@ -373,7 +376,7 @@ internal fun ThemePillSelector(
                     )
                     .clip(pillShape)
                     .background(if (isDark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.92f))
-                    .border(1.dp, borderBrush, pillShape)
+                    .border(1.dp, borderColor, pillShape)
             )
 
             Row(Modifier.fillMaxSize()) {
@@ -418,7 +421,8 @@ internal fun ModelDropdownSelector(
     var expanded by remember { mutableStateOf(false) }
     var editingCustom by remember { mutableStateOf(false) }
     var customInput by remember(selectedModel) { mutableStateOf(selectedModel) }
-    val borderBrush = diagonalGlassBorder(isDark = Glass.IsDark)
+    val borderColor = plainGlassBorderColor(isDark = Glass.IsDark)
+    val popupBg = plainGlassSheetColor(isDark = Glass.IsDark)
 
     val activeLabel = RECOMMENDED_MODELS.find { it.id == selectedModel }?.displayLabel
         ?: "$selectedModel (Custom)"
@@ -428,8 +432,8 @@ internal fun ModelDropdownSelector(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
-                .background(Glass.CardFillSubtle)
-                .border(1.dp, borderBrush, RoundedCornerShape(18.dp))
+                .background(Glass.CardFill)
+                .border(1.dp, borderColor, RoundedCornerShape(18.dp))
                 .clickable { expanded = true }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -438,15 +442,17 @@ internal fun ModelDropdownSelector(
                 Text(activeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("SSE streaming • thinkingLevel tuned automatically", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
             }
-            Icon(Icons.Rounded.ExpandMore, "Select model", tint = Glass.Cyan)
+            Icon(Icons.Rounded.ExpandMore, "Select model", tint = Glass.TextSecondary)
         }
 
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .background(Glass.Surface)
-                .border(1.dp, Glass.Stroke, RoundedCornerShape(14.dp))
+            shape = RoundedCornerShape(18.dp),
+            containerColor = popupBg,
+            tonalElevation = 0.dp,
+            shadowElevation = 10.dp,
+            border = BorderStroke(1.dp, borderColor)
         ) {
             RECOMMENDED_MODELS.forEach { choice ->
                 val isSelected = choice.id == selectedModel

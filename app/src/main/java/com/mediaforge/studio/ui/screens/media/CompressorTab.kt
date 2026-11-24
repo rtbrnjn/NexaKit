@@ -30,16 +30,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.core.FileUtils
+import com.mediaforge.studio.media.CompressionPreset
 import com.mediaforge.studio.media.MaxDimension
 import com.mediaforge.studio.media.OutputFormat
 import com.mediaforge.studio.ui.components.ChoiceRow
 import com.mediaforge.studio.ui.components.EmptyPicker
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
+import com.mediaforge.studio.ui.components.GlassChip
 import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.Hint
@@ -58,6 +62,7 @@ internal fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: H
     val estimating by vm.estimating.collectAsState()
     val progress by vm.progress.collectAsState()
     val message by vm.message.collectAsState()
+    val haptics = LocalHapticFeedback.current
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) vm.addImages(uris)
@@ -183,7 +188,24 @@ internal fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: H
 
         GlassCard(Modifier.fillMaxWidth()) {
             SectionLabel("Compression Settings")
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CompressionPreset.entries.forEach { preset ->
+                    GlassChip(
+                        text = preset.label,
+                        selected = opts.quality == preset.quality,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            vm.setQuality(preset.quality)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
             LabeledSlider(
                 label = "Quality",
                 valueText = "${opts.quality}%",
@@ -201,10 +223,13 @@ internal fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: H
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Strip EXIF & GPS Metadata", style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
-                    Hint("Removes location & identifying device tags")
+                    Text("Strip EXIF Metadata", style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
+                    Hint("Hapus informasi lokasi GPS & detail kamera saat kompresi")
                 }
-                GlassSwitch(opts.stripExif, vm::setStripExif)
+                GlassSwitch(opts.stripExif) { enabled ->
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    vm.setStripExif(enabled)
+                }
             }
         }
 
