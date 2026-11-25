@@ -106,10 +106,11 @@ class NexaKitMainNavigationUiTest {
         composeRule.onNodeWithText("AI Vault").performClick()
         composeRule.onNodeWithText("AI History Vault is empty").assertIsDisplayed()
 
-        // 4. Navigate to Settings, verify About DocPix + Update Checker button, API Key Guide & Feedback Sheet
+        // 4. Navigate to Settings, verify About DocPix + Adaptive Icon + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("DocPix v1.4.5 (Build 12)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.6 (Build 13)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("DocPix app icon").assertIsDisplayed()
         composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithText("Cara Mendapatkan API Key Gratis?").performScrollTo().performClick()
@@ -407,5 +408,25 @@ class LiquidGlassComponentsUiTest {
         }
         composeRule.onNodeWithText("DocPix · API 30 Fallback").assertIsDisplayed()
         composeRule.onNodeWithText("STATIC CONTENT SURFACE").assertIsDisplayed()
+    }
+
+    @Test
+    fun adaptiveAndMonochromeIconResources_resolveCleanlyWithThemeColors() {
+        val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val res = ctx.resources
+        org.junit.Assert.assertEquals(0xFFF4F6F9.toInt(), res.getColor(R.color.ic_launcher_background, null))
+        org.junit.Assert.assertEquals(0xFF111827.toInt(), res.getColor(R.color.ic_launcher_foreground, null))
+        org.junit.Assert.assertNotNull(androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.ic_launcher_foreground))
+        org.junit.Assert.assertNotNull(androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.ic_launcher_monochrome))
+        org.junit.Assert.assertNotNull(androidx.core.content.ContextCompat.getDrawable(ctx, R.mipmap.ic_launcher))
+        org.junit.Assert.assertNotNull(androidx.core.content.ContextCompat.getDrawable(ctx, R.mipmap.ic_launcher_round))
+
+        val nightConfig = android.content.res.Configuration(res.configuration).apply {
+            uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        val nightRes = ctx.createConfigurationContext(nightConfig).resources
+        org.junit.Assert.assertEquals(0xFF0E1116.toInt(), nightRes.getColor(R.color.ic_launcher_background, null))
+        org.junit.Assert.assertEquals(0xFFE2E8F0.toInt(), nightRes.getColor(R.color.ic_launcher_foreground, null))
     }
 }

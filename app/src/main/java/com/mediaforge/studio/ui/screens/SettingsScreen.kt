@@ -3,6 +3,7 @@ package com.mediaforge.studio.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,12 +51,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.BuildConfig
+import com.mediaforge.studio.R
 import com.mediaforge.studio.ai.AiEngine
 import com.mediaforge.studio.ai.AiPreference
 import com.mediaforge.studio.ai.AiRouting
@@ -440,12 +445,51 @@ fun SettingsScreen(vm: SettingsViewModel) {
             // ------------------------------------------------------------------ 6. About DocPix & Updates
             GlassCard(Modifier.fillMaxWidth()) {
                 SectionLabel("About DocPix")
-                Spacer(Modifier.height(6.dp))
-                Text("DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
-                Spacer(Modifier.height(4.dp))
-                Hint("Monochrome Liquid Glass Edition • Hilt DI • ML Kit Document Scanner • Dual-Engine Groq LPU + Gemini 3.8 SSE • Optimized ML Kit OCR • Offline Media & 14-Tool PDF Suite.")
-                Spacer(Modifier.height(6.dp))
-                Text("Package: com.mediaforge.studio", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val iconShape = RoundedCornerShape(16.dp)
+                    val iconBg = if (Glass.IsDark) Color(0xFF0E1116) else Color(0xFFF4F6F9)
+                    val iconFg = if (Glass.IsDark) Color(0xFFE2E8F0) else Color(0xFF111827)
+                    Box(
+                        Modifier
+                            .size(56.dp)
+                            .clip(iconShape)
+                            .background(iconBg)
+                            .border(1.dp, Glass.Stroke, iconShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_launcher_monochrome),
+                            contentDescription = "DocPix app icon",
+                            tint = iconFg,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = 1.46f
+                                    scaleY = 1.46f
+                                }
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Glass.TextPrimary
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "Package: com.mediaforge.studio",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Glass.TextDim
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Hint("Monochrome Liquid Glass Edition • Adaptive & Material You Themed Icon • Hilt DI • ML Kit Document Scanner • Dual-Engine Groq LPU + Gemini 3.8 SSE • Optimized ML Kit OCR • Offline Media & 14-Tool PDF Suite.")
                 Spacer(Modifier.height(12.dp))
                 Row(
                     Modifier.fillMaxWidth(),

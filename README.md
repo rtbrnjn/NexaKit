@@ -6,19 +6,27 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ---
 
-## Download & Install APK (`v1.4.5`)
+## Download & Install APK (`v1.4.6`)
 
-- **Direct Download (`v1.4.5`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.5/DocPix.apk)
+- **Direct Download (`v1.4.6`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.6/DocPix.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `DocPix.apk` dari halaman Releases di atas.
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.4** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
+3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.5** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
 
 ---
 
-## What's New in v1.4.5 ("60/120fps Smooth Startup, Batch ZIP Export, Ekstrak Teks PDF / OCR & Liquid Glass Fallback")
+## What's New in v1.4.6 ("Adaptive DP App Icon & Material You Themed Icons")
+- **Ikon Aplikasi DP Baru (`logo_docpix.png`) dalam Android Adaptive Icon Safe Zone:** Emblem gabungan dokumen (**D**) dan gambar (**P**) baru diposisikan presisi di dalam safe zone (`108dp × 108dp`) sehingga tampil tajam tanpa terpotong di launcher lingkaran, squircle, persegi tumpul, maupun teardrop, beserta seluruh resolusi legacy `mipmap` (`mdpi` hingga `xxxhdpi`).
+- **Adaptif Tema Sistem Light / Dark & Material You Themed Icons (Android 13+):**
+  - Layer `<background>` otomatis menyesuaikan tema sistem (`#F4F6F9` di Light Mode, `#0E1116` di Dark Mode).
+  - Layer `<foreground>` berbasis vector tajam dengan kontras tinggi (`#111827` di Light Mode, `#E2E8F0` di Dark Mode).
+  - Layer `<monochrome>` (`ic_launcher_monochrome.xml`) mendukung penuh fitur **Themed Icons / Ikon Bertema** Android 13+ sehingga warna ikon DocPix otomatis mengikuti palet wallpaper HP.
+- **Ikon Adaptif di Layar Settings / About & Splash:** Kartu **About DocPix** dan latar splash kini menampilkan ikon DP baru yang otomatis menyesuaikan tema Light/Dark aplikasi.
+
+## Highlights in v1.4.5 ("60/120fps Smooth Startup, Batch ZIP Export, Ekstrak Teks PDF / OCR & Liquid Glass Fallback")
 - **Cold Start & Navigasi 60/120fps Bebas Patah-Patah:**
   - Inisialisasi berat saat buka aplikasi (`PDFBoxResourceLoader`, pembacaan `EncryptedSharedPreferences`, pemindaian riwayat *Recent Creations*, serta pengecekan *Auto-Update* GitHub API) dipindahkan ke `Dispatchers.IO` dengan penundaan `800ms` setelah frame UI pertama ter-render.
   - `HorizontalPager` menggunakan *lazy composition* (`beyondViewportPageCount = 0`), *sliding pill* dock bawah membaca offset langsung di fase layout (0 rekomposisi per piksel geser), dan animasi *infinite* pada latar belakang dihapus.

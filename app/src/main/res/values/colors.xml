@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="obsidian">#FF0B0E13</color>
-    <color name="ic_launcher_background">#FF0E1116</color>
+    <color name="ic_launcher_background">#FFF4F6F9</color>
+    <color name="ic_launcher_foreground">#FF111827</color>
 </resources>
