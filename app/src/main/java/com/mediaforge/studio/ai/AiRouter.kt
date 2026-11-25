@@ -129,6 +129,34 @@ class AiRouter(
         onDelta = onDelta
     )
 
+    suspend fun streamPromptGeneration(
+        preference: AiPreference,
+        groqKey: String,
+        geminiKey: String,
+        geminiModel: String,
+        idea: String,
+        target: PromptTarget,
+        style: VisualStyle,
+        lighting: LightingPreset,
+        ratio: PromptAspectRatio,
+        onStatus: (engine: AiEngine, modelId: String, status: String) -> Unit,
+        onDelta: (accumulated: String) -> Unit
+    ): AiStreamOutcome = runWithFallback(
+        preference = preference,
+        groqKey = groqKey,
+        geminiKey = geminiKey,
+        geminiModel = geminiModel,
+        isVision = false,
+        streamForEngine = { engine ->
+            when (engine) {
+                AiEngine.GROQ -> groq.streamPromptGeneration(groqKey, idea, target, style, lighting, ratio)
+                AiEngine.GEMINI -> gemini.streamPromptGeneration(geminiKey, geminiModel, idea, target, style, lighting, ratio)
+            }
+        },
+        onStatus = onStatus,
+        onDelta = onDelta
+    )
+
     private suspend fun runWithFallback(
         preference: AiPreference,
         groqKey: String,

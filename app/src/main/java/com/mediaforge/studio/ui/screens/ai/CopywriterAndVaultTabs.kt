@@ -67,6 +67,7 @@ import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.ToolPage
+import com.mediaforge.studio.ui.components.bringIntoViewOnFocus
 import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.AiVaultViewModel
 import com.mediaforge.studio.vm.CopywriterViewModel
@@ -132,6 +133,7 @@ internal fun QuickPasteResetRow(
 private enum class VaultFilter(val label: String) {
     ALL("All"),
     PDF("PDF Summaries"),
+    PROMPT("Prompts"),
     COPY("Copywriting")
 }
 
@@ -166,7 +168,8 @@ internal fun CopywriterTab(
         message = message,
         onDismissMessage = vm::dismissMessage,
         topPadding = topPadding,
-        hazeState = hazeState
+        hazeState = hazeState,
+        imeAware = true
     ) {
         if (uri == null) {
             EmptyPicker(
@@ -216,7 +219,8 @@ internal fun CopywriterTab(
                 label = "Optional Product Notes",
                 placeholder = "e.g. Matte ceramic, free shipping, minimalist desk setup",
                 minLines = 2,
-                maxLines = 4
+                maxLines = 4,
+                modifier = Modifier.bringIntoViewOnFocus(notes.length)
             )
         }
 
@@ -343,6 +347,7 @@ internal fun AiVaultTab(
         when (filter) {
             VaultFilter.ALL -> entries
             VaultFilter.PDF -> entries.filter { it.kind == AiHistoryKind.PDF_SUMMARY }
+            VaultFilter.PROMPT -> entries.filter { it.kind == AiHistoryKind.PROMPT }
             VaultFilter.COPY -> entries.filter { it.kind == AiHistoryKind.COPYWRITING }
         }
     }
@@ -375,7 +380,16 @@ internal fun AiVaultTab(
             }
         } else {
             items(visible, key = { it.id }) { item ->
-                val isPdf = item.kind == AiHistoryKind.PDF_SUMMARY
+                val badgeColor = when (item.kind) {
+                    AiHistoryKind.PDF_SUMMARY -> Glass.Cyan
+                    AiHistoryKind.PROMPT -> Glass.Amber
+                    else -> Glass.Emerald
+                }
+                val badgeLabel = when (item.kind) {
+                    AiHistoryKind.PDF_SUMMARY -> "PDF AI"
+                    AiHistoryKind.PROMPT -> "PROMPT"
+                    else -> "COPY"
+                }
                 val expanded = expandedId == item.id
                 GlassCard(
                     Modifier.fillMaxWidth(),
@@ -386,13 +400,13 @@ internal fun AiVaultTab(
                         Box(
                             Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background((if (isPdf) Glass.Cyan else Glass.Emerald).copy(alpha = 0.14f))
+                                .background(badgeColor.copy(alpha = 0.14f))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                if (isPdf) "PDF AI" else "COPY",
+                                badgeLabel,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isPdf) Glass.Cyan else Glass.Emerald
+                                color = badgeColor
                             )
                         }
                         Spacer(Modifier.width(8.dp))

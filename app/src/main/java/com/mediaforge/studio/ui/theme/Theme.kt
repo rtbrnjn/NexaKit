@@ -39,40 +39,40 @@ data class GlassPalette(
 
 val DarkGlassPalette = GlassPalette(
     isDark = true,
-    bg = Color(0xFF0B0E13),
-    surface = Color(0xFF131821),
-    cardFill = Color.White.copy(alpha = 0.06f),
-    cardFillSubtle = Color.White.copy(alpha = 0.04f),
-    navFill = Color(0xA60F131A),
-    stroke = Color.White.copy(alpha = 0.12f),
-    cyan = Color(0xFFB8C7D9),
-    emerald = Color(0xFF8AB59D),
+    bg = Color(0xFF090C10),
+    surface = Color(0xFF101622),
+    cardFill = Color.White.copy(alpha = 0.045f),
+    cardFillSubtle = Color.White.copy(alpha = 0.03f),
+    navFill = Color.White.copy(alpha = 0.06f),
+    stroke = Color.White.copy(alpha = 0.16f),
+    cyan = Color(0xFF93C5FD),
+    emerald = Color(0xFF6EE7B7),
     indigo = Color(0xFF94A3B8),
-    amber = Color(0xFFCBB28A),
-    danger = Color(0xFFE07A8B),
-    onAccent = Color(0xFF0B0E13),
-    textPrimary = Color(0xFFF5F7FA),
-    textSecondary = Color(0xFFA3AEBE),
-    textDim = Color(0xFF687385)
+    amber = Color(0xFFFCD34D),
+    danger = Color(0xFFF472B6),
+    onAccent = Color(0xFF090C10),
+    textPrimary = Color(0xFFF8FAFC),
+    textSecondary = Color(0xFFB4C0D2),
+    textDim = Color(0xFF728199)
 )
 
 val LightGlassPalette = GlassPalette(
     isDark = false,
-    bg = Color(0xFFF4F6F9),
-    surface = Color(0xFFFFFFFF),
-    cardFill = Color.White.copy(alpha = 0.70f),
-    cardFillSubtle = Color.White.copy(alpha = 0.50f),
-    navFill = Color(0xBDFFFFFF),
-    stroke = Color(0xFF0F172A).copy(alpha = 0.09f),
-    cyan = Color(0xFF1E293B),
-    emerald = Color(0xFF2F6F58),
+    bg = Color(0xFFEDF2F7),
+    surface = Color(0xFFF8FAFC),
+    cardFill = Color.White.copy(alpha = 0.48f),
+    cardFillSubtle = Color.White.copy(alpha = 0.36f),
+    navFill = Color.White.copy(alpha = 0.50f),
+    stroke = Color.White.copy(alpha = 0.65f),
+    cyan = Color(0xFF1D4ED8),
+    emerald = Color(0xFF0F766E),
     indigo = Color(0xFF475569),
-    amber = Color(0xFF8C6232),
-    danger = Color(0xFFB83B4E),
+    amber = Color(0xFFB45309),
+    danger = Color(0xFFBE123C),
     onAccent = Color.White,
     textPrimary = Color(0xFF0F172A),
-    textSecondary = Color(0xFF475569),
-    textDim = Color(0xFF7D899B)
+    textSecondary = Color(0xFF334155),
+    textDim = Color(0xFF64748B)
 )
 
 val LocalGlassPalette = staticCompositionLocalOf { DarkGlassPalette }

@@ -79,6 +79,25 @@ class GroqClient {
         }
     }
 
+    /** Streams structured English AI image/video prompt + negative prompt via Llama 3.3 70B. */
+    fun streamPromptGeneration(
+        apiKey: String,
+        idea: String,
+        target: PromptTarget,
+        style: VisualStyle,
+        lighting: LightingPreset,
+        ratio: PromptAspectRatio
+    ): Flow<String> {
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", buildPromptMakerSystemPrompt()))
+            .put(
+                JSONObject()
+                    .put("role", "user")
+                    .put("content", buildPromptMakerUserPrompt(idea, target, style, lighting, ratio))
+            )
+        return streamModel(apiKey, TEXT_MODEL, messages, temperature = 0.85, maxTokens = 1024)
+    }
+
     private fun streamWithVisionFallback(
         apiKey: String,
         messages: JSONArray,

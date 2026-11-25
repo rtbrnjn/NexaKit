@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -63,6 +67,7 @@ import com.mediaforge.studio.ui.components.Hint
 import com.mediaforge.studio.ui.components.ProgressOverlay
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.StatusBanner
+import com.mediaforge.studio.ui.components.bringIntoViewOnFocus
 import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.ExtractDepth
 import com.mediaforge.studio.vm.PdfAiViewModel
@@ -101,13 +106,17 @@ internal fun PdfAssistantTab(
         if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
     }
 
+    val density = LocalDensity.current
+    val imeOpen = WindowInsets.ime.getBottom(density) > 0
+
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
+                .imePadding()
                 .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = 120.dp),
+                .padding(top = topPadding, bottom = if (imeOpen) 16.dp else 120.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StatusBanner(message, vm::dismissMessage)
@@ -146,7 +155,9 @@ internal fun PdfAssistantTab(
                                 onValueChange = vm::setPageRange,
                                 label = "Pages (e.g. 1-5, all)",
                                 singleLine = true,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .bringIntoViewOnFocus(pageRange.length)
                             )
                             Spacer(Modifier.width(8.dp))
                             GlassButton("Apply", primary = false, compact = true, onClick = vm::applyRange)
@@ -272,7 +283,9 @@ internal fun PdfAssistantTab(
                         onValueChange = { question = it },
                         label = "Ask about this PDF…",
                         singleLine = true,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .bringIntoViewOnFocus(question.length)
                     )
                     Spacer(Modifier.width(8.dp))
                     if (isStreaming) {

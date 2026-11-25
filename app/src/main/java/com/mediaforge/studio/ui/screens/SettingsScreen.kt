@@ -150,7 +150,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 .let { if (chromeHaze != null) it.hazeSource(chromeHaze, zIndex = 1f) else it }
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = 120.dp),
+                .padding(top = topPadding, bottom = 128.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ------------------------------------------------------------------ 1. Appearance (Sliding Liquid Pill)

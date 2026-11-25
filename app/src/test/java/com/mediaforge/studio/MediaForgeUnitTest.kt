@@ -375,4 +375,40 @@ class MediaForgeUnitTest {
             f2.delete()
         }
     }
+
+    @Test
+    fun promptGeneratorAndImageCreationModels_parseAndExposeExpectedOptions() {
+        assertEquals(
+            listOf("Cinematic Photo", "Liquid Glass 3D", "Anime", "Minimalist Vector", "Product Studio"),
+            com.mediaforge.studio.ai.VisualStyle.entries.map { it.label }
+        )
+        assertEquals(
+            listOf("Soft Ambient", "Golden Hour", "Neon Cyberpunk"),
+            com.mediaforge.studio.ai.LightingPreset.entries.map { it.label }
+        )
+        assertEquals(
+            listOf("1:1", "16:9", "9:16", "4:5"),
+            com.mediaforge.studio.ai.PromptAspectRatio.entries.map { it.label }
+        )
+        assertEquals(
+            listOf("1:1", "16:9", "9:16", "3:4"),
+            com.mediaforge.studio.ai.ImageAspectRatio.entries.map { it.label }
+        )
+
+        val raw = """
+            PROMPT:
+            A photorealistic orange tabby cat wearing a sleek reflective astronaut helmet standing on dusty lunar craters, Earth glowing softly in the visor, 35mm cinematic lens, soft ambient starlight.
+
+            NEGATIVE PROMPT:
+            blurry, watermark, distorted paws, text, low resolution, oversaturated
+
+            TIPS:
+            Tambahkan sudut kamera low-angle untuk efek dramatis.
+        """.trimIndent()
+        val parsed = com.mediaforge.studio.ai.GeneratedPromptResult.parse(raw)
+        assertTrue(parsed.mainPrompt.contains("orange tabby cat"))
+        assertTrue(parsed.negativePrompt.contains("watermark"))
+        assertTrue(parsed.tips.contains("low-angle"))
+        assertTrue(parsed.asCopyableText().contains("Negative Prompt:"))
+    }
 }

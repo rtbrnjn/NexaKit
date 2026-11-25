@@ -93,23 +93,33 @@ class NexaKitMainNavigationUiTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
 
-        // 3. Navigate to AI Studio, verify Copywriter Quick Paste & Reset, and switch to AI Vault tab
+        // 3. Navigate to AI Studio, verify Prompt Generator, Image Creation, Copywriter Quick Paste & Reset, and AI Vault
         composeRule.onNodeWithText("AI Studio").performClick()
         composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
-        composeRule.onNodeWithText("Copywriter").performClick()
+
+        composeRule.onNodeWithText("Prompt").performScrollTo().performClick()
+        composeRule.onNodeWithText("Ide Singkat Anda").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Liquid Glass 3D").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Buat Prompt Profesional").performScrollTo().assertIsDisplayed()
+
+        composeRule.onNodeWithText("Image AI").performScrollTo().performClick()
+        composeRule.onNodeWithText("Prompt Gambar AI").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Generate Gambar AI").performScrollTo().assertIsDisplayed()
+
+        composeRule.onNodeWithText("Copywriter").performScrollTo().performClick()
         composeRule.onNodeWithText("Tempel").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Bersihkan").performScrollTo().assertIsNotEnabled()
         composeRule.onNodeWithText("Optional Product Notes").performScrollTo().performTextInput("Kopi arabika 250g")
         composeRule.onNodeWithText("Bersihkan").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Bersihkan").assertIsNotEnabled()
 
-        composeRule.onNodeWithText("AI Vault").performClick()
+        composeRule.onNodeWithText("AI Vault").performScrollTo().performClick()
         composeRule.onNodeWithText("AI History Vault is empty").assertIsDisplayed()
 
         // 4. Navigate to Settings, verify About DocPix + Adaptive Icon + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("DocPix v1.4.6 (Build 13)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.7 (Build 14)").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("DocPix app icon").assertIsDisplayed()
         composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
@@ -119,7 +129,9 @@ class NexaKitMainNavigationUiTest {
         composeRule.onNodeWithText("Buka Google AI Studio").assertIsDisplayed()
         composeRule.onNodeWithText("Tutup Panduan").performClick()
 
-        composeRule.onNodeWithText("Laporkan Bug atau Kirim Saran").performScrollTo().performClick()
+        // Scroll past About DocPix so the Feedback card sits cleanly above the floating bottom dock
+        composeRule.onNodeWithText("Cek Pembaruan").performScrollTo()
+        composeRule.onNodeWithText("Laporkan Bug atau Kirim Saran").performClick()
         composeRule.onNodeWithText("Laporkan Bug atau Saran").assertIsDisplayed()
         composeRule.onNodeWithText("Salin Laporan").assertIsNotEnabled()
         composeRule.onNodeWithText("Saran Fitur").performClick()
@@ -428,5 +440,50 @@ class LiquidGlassComponentsUiTest {
         val nightRes = ctx.createConfigurationContext(nightConfig).resources
         org.junit.Assert.assertEquals(0xFF0E1116.toInt(), nightRes.getColor(R.color.ic_launcher_background, null))
         org.junit.Assert.assertEquals(0xFFE2E8F0.toInt(), nightRes.getColor(R.color.ic_launcher_foreground, null))
+    }
+
+    @Test
+    fun geminiImageParsers_extractInlineDataAndImagenPredictions() {
+        val samplePayload = android.util.Base64.encodeToString("fake-png-bytes".toByteArray(), android.util.Base64.NO_WRAP)
+        val genContentJson = """
+            {
+              "candidates": [
+                {
+                  "content": {
+                    "parts": [
+                      { "text": "Astronaut cat rendered cleanly." },
+                      { "inlineData": { "mimeType": "image/png", "data": "$samplePayload" } }
+                    ]
+                  }
+                }
+              ]
+            }
+        """.trimIndent()
+        val fromGemini = com.mediaforge.studio.ai.GeminiClient.extractGeneratedImageFromGenerateContent(
+            genContentJson,
+            "gemini-2.5-flash-image"
+        )
+        org.junit.Assert.assertEquals("image/png", fromGemini?.mimeType)
+        org.junit.Assert.assertEquals("png", fromGemini?.fileExtension)
+        org.junit.Assert.assertEquals("fake-png-bytes", fromGemini?.bytes?.toString(Charsets.UTF_8))
+        org.junit.Assert.assertEquals("Astronaut cat rendered cleanly.", fromGemini?.caption)
+
+        val imagenJson = """
+            {
+              "predictions": [
+                {
+                  "mimeType": "image/jpeg",
+                  "bytesBase64Encoded": "$samplePayload"
+                }
+              ]
+            }
+        """.trimIndent()
+        val fromImagen = com.mediaforge.studio.ai.GeminiClient.extractGeneratedImageFromImagenPredict(
+            imagenJson,
+            "imagen-4.0-generate-001"
+        )
+        org.junit.Assert.assertEquals("image/jpeg", fromImagen?.mimeType)
+        org.junit.Assert.assertEquals("jpg", fromImagen?.fileExtension)
+        org.junit.Assert.assertEquals("fake-png-bytes", fromImagen?.bytes?.toString(Charsets.UTF_8))
     }
 }

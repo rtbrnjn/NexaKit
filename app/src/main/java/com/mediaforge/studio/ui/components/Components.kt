@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +50,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.core.BitmapUtils
@@ -172,17 +176,23 @@ fun ToolPage(
     topPadding: Dp = 0.dp,
     bottomPadding: Dp = 120.dp,
     hazeState: HazeState? = LocalHazeState.current,
+    imeAware: Boolean = false,
     onBack: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val density = LocalDensity.current
+    val imeOpen = imeAware && WindowInsets.ime.getBottom(density) > 0
+    val resolvedBottomPadding = if (imeOpen) 20.dp else bottomPadding
+
     Box(modifier.fillMaxSize()) {
         val baseScroll = Modifier
             .fillMaxSize()
+            .let { if (imeAware) it.imePadding() else it }
             .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
-            .padding(top = topPadding, bottom = bottomPadding)
+            .padding(top = topPadding, bottom = resolvedBottomPadding)
 
         Column(baseScroll, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (title != null) {

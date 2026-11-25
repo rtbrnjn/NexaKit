@@ -6,19 +6,29 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ---
 
-## Download & Install APK (`v1.4.6`)
+## Download & Install APK (`v1.4.7`)
 
-- **Direct Download (`v1.4.6`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.6/DocPix.apk)
+- **Direct Download (`v1.4.7`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.7/DocPix.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
 1. Unduh `DocPix.apk` dari halaman Releases di atas.
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.5** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
+3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.6** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
 
 ---
 
-## What's New in v1.4.6 ("Adaptive DP App Icon & Material You Themed Icons")
+## What's New in v1.4.7 ("True Clear Liquid Glass, Liquid Morphing Navbar, IME Auto-Scroll, Prompt Generator & AI Image Creation")
+- **True Clear Translucent Liquid Glass & Ambient Light Orbs Backdrop:**
+  - Lapisan kaca bening tembus pandang (*Dark Mode:* gradasi tipis `0.05f → 0.015f`, blur ringan `14.dp`, *Specular Rim Highlight* `0.35f → 0.06f`; *Light Mode:* `0.55f → 0.30f`, border putih terang `0.85f → 0.20f`) pada kartu, dialog, dan floating dock.
+  - Kanvas latar `LiquidGlassBackdrop` berbasis `drawWithCache` statis (60/120fps) berisi *Ambient Soft Light Orbs* (Dark `#090C10` + Cool Blue `#1D4ED8` & Cyan `#0E7490`; Light `#EDF2F7` + pastel Sky Blue `#93C5FD` & Mint `#A7F3D0`) serta *micro-dot grid* `22.dp` (alpha `0.05f`).
+- **Liquid Morphing Bottom Navigation Bar:** Kapsul kaca dock bawah meluncur 1:1 bersama `HorizontalPager` dengan pegas elastis (`dampingRatio = 0.78f`, `stiffness = 380f`), efek peregangan (*subtle stretch/squash*) saat berpindah tab, kilau specular, dan transisi skala/opasitas ikon-label real-time tanpa rekomposisi tambahan.
+- **Auto-Scroll Input AI Studio ke Atas Keyboard (`imePadding` + `BringIntoViewRequester`):** Seluruh kolom teks di AI Studio otomatis terangkat dan tergulir mulus tepat di atas keyboard saat difokuskan maupun saat teks bertambah panjang.
+- **Fitur Baru AI Studio — Prompt Generator & Image Creation:**
+  - **Prompt Generator (Prompt Maker):** Ubah ide singkat menjadi prompt Bahasa Inggris profesional + *Negative Prompt* dengan pilihan target (*AI Gambar* / *AI Video*), gaya visual (*Cinematic Photo*, *Liquid Glass 3D*, *Anime*, *Minimalist Vector*, *Product Studio*), pencahayaan (*Soft Ambient*, *Golden Hour*, *Neon Cyberpunk*), rasio aspek (`1:1`, `16:9`, `9:16`, `4:5`), tombol **Salin**, serta pintasan **"Kirim ke Image Creation"**.
+  - **Image Creation (Gemini / Imagen REST API):** Hasilkan gambar AI langsung menggunakan Gemini API Key tersimpan dengan rasio `1:1`, `16:9`, `9:16`, atau `3:4`, pratinjau dalam bingkai *Liquid Glass*, tombol **Simpan ke Galeri (`Pictures/DocPix`)**, dan **Bagikan**.
+
+## Highlights in v1.4.6 ("Adaptive DP App Icon & Material You Themed Icons")
 - **Ikon Aplikasi DP Baru (`logo_docpix.png`) dalam Android Adaptive Icon Safe Zone:** Emblem gabungan dokumen (**D**) dan gambar (**P**) baru diposisikan presisi di dalam safe zone (`108dp × 108dp`) sehingga tampil tajam tanpa terpotong di launcher lingkaran, squircle, persegi tumpul, maupun teardrop, beserta seluruh resolusi legacy `mipmap` (`mdpi` hingga `xxxhdpi`).
 - **Adaptif Tema Sistem Light / Dark & Material You Themed Icons (Android 13+):**
   - Layer `<background>` otomatis menyesuaikan tema sistem (`#F4F6F9` di Light Mode, `#0E1116` di Dark Mode).
@@ -104,10 +114,12 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 13. **Protect / Encrypt PDF** — Enkripsi kata sandi 128-bit (`StandardProtectionPolicy`) beserta izin cetak/salin.
 14. **Unlock / Decrypt PDF** — Hapus proteksi kata sandi pada PDF milik pengguna.
 
-### 3. Gemini AI Copilot & AI History Vault
+### 3. AI Studio (Dual-Engine Groq LPU + Gemini & Image Creation)
 - **Smart PDF Assistant** — Ekstraksi halaman selektif, **ML Kit Local OCR** untuk scanned PDF + opsi **Vision Mode**, budget karakter (`12K` / `30K` / `80K`), tombol cepat **Tempel / Bersihkan**, dan streaming SSE real-time.
+- **Prompt Generator (Prompt Maker)** — Buat prompt Bahasa Inggris terstruktur + *Negative Prompt* untuk Midjourney, Flux, Imagen/Gemini, dan AI Video lengkap dengan gaya visual, pencahayaan, rasio, dan kirim langsung ke Image Creation.
+- **Image Creation (AI Image Generator)** — Generasi gambar via Gemini / Imagen REST API (`1:1`, `16:9`, `9:16`, `3:4`), pratinjau bingkai *Liquid Glass*, simpan langsung ke `Pictures/DocPix`, dan bagikan.
 - **Product Photo Copywriter** — Auto-kompresi (`768px` / `75%` JPEG), tombol cepat **Tempel / Bersihkan**, serta streaming judul produk, 3 hook video pendek, dan caption + hashtag siap salin.
-- **AI History Vault** — Tersimpan offline di Room Database (`nexakit_ai_vault.db`).
+- **AI History Vault** — Riwayat PDF AI, Prompt, dan Copywriting tersimpan offline di Room Database (`nexakit_ai_vault.db`).
 - **Android Share Target** — Kirim gambar/PDF langsung dari WhatsApp, Galeri, atau File Manager ke DocPix.
 
 ---

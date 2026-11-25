@@ -3,6 +3,7 @@ package com.mediaforge.studio.ui.components
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,6 +13,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,11 +42,15 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +71,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.ui.theme.Glass
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Coordinates touch locks so inner horizontal controls (Sliders, horizontal strips)
@@ -121,6 +130,37 @@ fun Modifier.horizontalCarouselScroll(state: ScrollState = rememberScrollState()
         .blockParentPagerSwipe()
         .nestedScroll(ConsumeHorizontalOverflowConnection)
         .horizontalScroll(state)
+
+/**
+ * Automatically scrolls a focused input field smoothly above the soft keyboard via
+ * [BringIntoViewRequester] both when focused and whenever its multiline text expands.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.bringIntoViewOnFocus(textKey: Any? = null): Modifier {
+    val requester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    var focused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(focused, textKey) {
+        if (focused) {
+            delay(150L)
+            requester.bringIntoView()
+        }
+    }
+
+    return this
+        .bringIntoViewRequester(requester)
+        .onFocusChanged { state ->
+            focused = state.isFocused
+            if (state.isFocused) {
+                scope.launch {
+                    delay(180L)
+                    requester.bringIntoView()
+                }
+            }
+        }
+}
 
 @Composable
 fun LiquidGlassPill(

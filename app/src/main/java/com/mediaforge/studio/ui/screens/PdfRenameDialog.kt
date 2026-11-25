@@ -74,8 +74,8 @@ fun PdfRenameDialog(
                 .padding(horizontal = 20.dp)
                 .liquidGlassChrome(
                     shape = shape,
-                    blurRadius = 28.dp,
-                    shadowElevation = 24.dp,
+                    blurRadius = 16.dp,
+                    shadowElevation = 20.dp,
                     tintColor = plainGlassSheetColor(),
                     strongBorder = true
                 )

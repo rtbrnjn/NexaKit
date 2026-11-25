@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 object AiHistoryKind {
     const val PDF_SUMMARY = "PDF_SUMMARY"
     const val COPYWRITING = "COPYWRITING"
+    const val PROMPT = "PROMPT"
 }
 
 @Entity(tableName = "ai_history")

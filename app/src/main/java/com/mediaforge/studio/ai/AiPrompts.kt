@@ -16,6 +16,168 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 
+enum class PromptTarget(val label: String, val promptKind: String) {
+    IMAGE("AI Gambar", "AI Image Generation (Midjourney, Flux, Imagen, Gemini)"),
+    VIDEO("AI Video", "AI Video Generation (Veo, Sora, Runway, Kling)")
+}
+
+enum class VisualStyle(val label: String, val cue: String) {
+    CINEMATIC_PHOTO(
+        "Cinematic Photo",
+        "cinematic photorealistic photography, 35mm anamorphic lens, shallow depth of field, natural film grain, ultra-detailed"
+    ),
+    LIQUID_GLASS_3D(
+        "Liquid Glass 3D",
+        "3D Octane render, clear refractive liquid glass material, caustics, specular rim highlights, clean minimalist studio lighting"
+    ),
+    ANIME(
+        "Anime",
+        "high-budget theatrical anime key visual, crisp cel shading, expressive lighting, richly detailed atmospheric background"
+    ),
+    MINIMALIST_VECTOR(
+        "Minimalist Vector",
+        "minimalist geometric vector artwork, clean precise silhouettes, balanced negative space, modern editorial design"
+    ),
+    PRODUCT_STUDIO(
+        "Product Studio",
+        "luxury commercial product studio photography, crisp reflections, macro material detail, seamless studio backdrop"
+    )
+}
+
+enum class LightingPreset(val label: String, val cue: String) {
+    SOFT_AMBIENT("Soft Ambient", "soft diffused ambient lighting, delicate shadow falloff, clean studio glow"),
+    GOLDEN_HOUR("Golden Hour", "warm golden hour sunlight, luminous rim backlighting, subtle atmospheric flare"),
+    NEON_CYBERPUNK("Neon Cyberpunk", "dramatic neon cyan and magenta rim lighting, moody dark atmosphere, glossy wet reflections")
+}
+
+enum class ImageAspectRatio(val label: String, val apiValue: String, val ratioFloat: Float) {
+    SQUARE("1:1", "1:1", 1f),
+    LANDSCAPE("16:9", "16:9", 16f / 9f),
+    PORTRAIT_STORY("9:16", "9:16", 9f / 16f),
+    PORTRAIT_3_4("3:4", "3:4", 3f / 4f)
+}
+
+enum class PromptAspectRatio(val label: String, val imageRatio: ImageAspectRatio) {
+    SQUARE("1:1", ImageAspectRatio.SQUARE),
+    LANDSCAPE("16:9", ImageAspectRatio.LANDSCAPE),
+    PORTRAIT_STORY("9:16", ImageAspectRatio.PORTRAIT_STORY),
+    PORTRAIT_FEED("4:5", ImageAspectRatio.PORTRAIT_3_4)
+}
+
+data class GeneratedPromptResult(
+    val mainPrompt: String,
+    val negativePrompt: String,
+    val tips: String = ""
+) {
+    fun asCopyableText(): String = buildString {
+        appendLine(mainPrompt.trim())
+        if (negativePrompt.isNotBlank()) {
+            appendLine()
+            appendLine("Negative Prompt: ${negativePrompt.trim()}")
+        }
+    }.trim()
+
+    companion object {
+        /** Parses structured sections (`PROMPT:`, `NEGATIVE PROMPT:`, `TIPS:`) cleanly from streamed LLM text. */
+        fun parse(raw: String): GeneratedPromptResult {
+            val cleaned = raw.replace("```", "").trim()
+            val lines = cleaned.lines()
+            var section = ""
+            val mainLines = ArrayList<String>()
+            val negLines = ArrayList<String>()
+            val tipLines = ArrayList<String>()
+
+            val headerRegex = Regex(
+                """^(?:\*{0,2}|#+\s*)?(MAIN PROMPT|POSITIVE PROMPT|PROMPT|NEGATIVE PROMPT|NEGATIVE|TIPS|CATATAN)(?:\*{0,2})?\s*:\s*(.*)$""",
+                RegexOption.IGNORE_CASE
+            )
+            for (rawLine in lines) {
+                val line = rawLine.trim()
+                val match = headerRegex.matchEntire(line)
+                if (match != null) {
+                    val key = match.groupValues[1].uppercase()
+                    val inlineVal = match.groupValues[2].trim()
+                    section = when {
+                        key.contains("NEGATIVE") -> "NEGATIVE"
+                        key.contains("TIP") || key.contains("CATATAN") -> "TIPS"
+                        key.contains("PROMPT") -> "PROMPT"
+                        else -> section
+                    }
+                    if (inlineVal.isNotEmpty()) {
+                        when (section) {
+                            "PROMPT" -> mainLines += inlineVal
+                            "NEGATIVE" -> negLines += inlineVal
+                            "TIPS" -> tipLines += inlineVal
+                        }
+                    }
+                    continue
+                }
+                if (line.isNotEmpty()) {
+                    when (section) {
+                        "PROMPT" -> mainLines += line
+                        "NEGATIVE" -> negLines += line
+                        "TIPS" -> tipLines += line
+                    }
+                }
+            }
+
+            val parsedMain = mainLines.joinToString(" ").trim()
+            val parsedNeg = negLines.joinToString(" ").trim()
+            val parsedTips = tipLines.joinToString(" ").trim()
+            return GeneratedPromptResult(
+                mainPrompt = parsedMain.ifEmpty { if (section.isEmpty()) cleaned else "" },
+                negativePrompt = parsedNeg,
+                tips = parsedTips
+            )
+        }
+    }
+}
+
+class GeneratedImageResult(
+    val bytes: ByteArray,
+    val mimeType: String,
+    val modelId: String,
+    val caption: String = ""
+) {
+    val fileExtension: String
+        get() = when {
+            mimeType.contains("jpeg", ignoreCase = true) || mimeType.contains("jpg", ignoreCase = true) -> "jpg"
+            mimeType.contains("webp", ignoreCase = true) -> "webp"
+            else -> "png"
+        }
+}
+
+internal fun buildPromptMakerSystemPrompt(): String = buildString {
+    appendLine("You are an elite AI visual prompt engineer for Midjourney, Flux, Google Imagen, Gemini Image, and cinematic AI video generators.")
+    appendLine("Transform the user's short concept (in any language) into a cohesive, vivid, production-ready English prompt plus a crisp Negative Prompt.")
+    appendLine("Follow this EXACT plain-text section format without markdown code fences:")
+    appendLine("PROMPT:")
+    appendLine("<one rich, well-structured English prompt describing subject, pose/action, environment, camera lens/composition, material texture, lighting, and visual style; 60-110 words>")
+    appendLine()
+    appendLine("NEGATIVE PROMPT:")
+    appendLine("<concise comma-separated English negative prompt avoiding artifacts, distorted anatomy, watermark, text, low quality, blur; 18-35 words>")
+    appendLine()
+    appendLine("TIPS:")
+    appendLine("<1 short helpful suggestion in Bahasa Indonesia, max 22 words>")
+}
+
+internal fun buildPromptMakerUserPrompt(
+    idea: String,
+    target: PromptTarget,
+    style: VisualStyle,
+    lighting: LightingPreset,
+    ratio: PromptAspectRatio
+): String = buildString {
+    appendLine("User Concept: ${idea.trim()}")
+    appendLine("Target Medium: ${target.promptKind}")
+    appendLine("Visual Style: ${style.label} (${style.cue})")
+    appendLine("Lighting: ${lighting.label} (${lighting.cue})")
+    appendLine("Composition / Aspect Ratio: ${ratio.label}")
+    if (target == PromptTarget.VIDEO) {
+        appendLine("Include subtle, realistic camera motion and temporal continuity cues suited for AI video.")
+    }
+}
+
 internal fun buildProductCopyPrompt(language: CopyLanguage, notes: String): String = buildString {
     appendLine("You are a senior e-commerce copywriter and short-form video strategist.")
     appendLine("Study the product in the photo and write marketing copy in ${language.promptName}.")
@@ -63,6 +225,42 @@ internal object SseHttp {
             conn.readTimeout = 30_000
             headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
             conn.setRequestProperty("Accept", "application/json")
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw mapHttpError(providerName, code, text)
+            text
+        } catch (e: GeminiException) {
+            throw e
+        } catch (_: UnknownHostException) {
+            throw GeminiException(GeminiException.Kind.OFFLINE, "No internet connection – Offline Mode is active.")
+        } catch (_: SocketTimeoutException) {
+            throw GeminiException(GeminiException.Kind.OFFLINE, "The request timed out. Check your connection and retry.")
+        } catch (e: IOException) {
+            throw GeminiException(GeminiException.Kind.OFFLINE, "Network error: ${e.message ?: "connection failed"}")
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    suspend fun postJson(
+        url: String,
+        headers: Map<String, String>,
+        body: JSONObject,
+        providerName: String,
+        readTimeoutMs: Int = 90_000
+    ): String = withContext(Dispatchers.IO) {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 20_000
+            readTimeout = readTimeoutMs
+            doOutput = true
+            headers.forEach { (k, v) -> setRequestProperty(k, v) }
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+        }
+        try {
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()

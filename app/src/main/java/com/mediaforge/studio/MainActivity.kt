@@ -10,6 +10,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,12 +25,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -56,14 +63,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,6 +84,7 @@ import com.mediaforge.studio.ui.components.LocalBackdropHazeState
 import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.components.LocalPagerGestureCoordinator
 import com.mediaforge.studio.ui.components.PagerGestureCoordinator
+import com.mediaforge.studio.ui.components.diagonalGlassBorder
 import com.mediaforge.studio.ui.components.liquidGlassChrome
 import com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur
 import com.mediaforge.studio.ui.screens.AiTool
@@ -100,6 +109,7 @@ import com.mediaforge.studio.vm.CopywriterViewModel
 import com.mediaforge.studio.vm.DocumentScannerViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
 import com.mediaforge.studio.vm.ExtractPdfTextViewModel
+import com.mediaforge.studio.vm.ImageCreationViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
 import com.mediaforge.studio.vm.MergePdfViewModel
 import com.mediaforge.studio.vm.MockupViewModel
@@ -107,6 +117,7 @@ import com.mediaforge.studio.vm.PageNumbersViewModel
 import com.mediaforge.studio.vm.PdfAiViewModel
 import com.mediaforge.studio.vm.PdfToDocxViewModel
 import com.mediaforge.studio.vm.PdfToImagesViewModel
+import com.mediaforge.studio.vm.PromptGeneratorViewModel
 import com.mediaforge.studio.vm.ProtectPdfViewModel
 import com.mediaforge.studio.vm.SettingsViewModel
 import com.mediaforge.studio.vm.SplitPdfViewModel
@@ -123,7 +134,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 private enum class TopTab(val label: String, val icon: ImageVector) {
     MEDIA_LAB("Media Lab", Icons.Rounded.PhotoLibrary),
@@ -223,6 +236,8 @@ private fun MediaForgeRoot(
     val unlockVm: UnlockPdfViewModel = viewModel()
     val copyVm: CopywriterViewModel = viewModel()
     val pdfAiVm: PdfAiViewModel = viewModel()
+    val promptVm: PromptGeneratorViewModel = viewModel()
+    val imageVm: ImageCreationViewModel = viewModel()
     val aiVaultVm: AiVaultViewModel = viewModel()
 
     var requestedMediaTool by remember { mutableStateOf<MediaTool?>(null) }
@@ -273,7 +288,10 @@ private fun MediaForgeRoot(
 
     fun navigateTo(tab: TopTab) {
         scope.launch {
-            pagerState.animateScrollToPage(tab.ordinal)
+            pagerState.animateScrollToPage(
+                page = tab.ordinal,
+                animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f)
+            )
         }
     }
 
@@ -411,6 +429,8 @@ private fun MediaForgeRoot(
                             onOpenVault = { navigateTo(TopTab.SETTINGS) },
                             copyVm = copyVm,
                             pdfAiVm = pdfAiVm,
+                            promptVm = promptVm,
+                            imageVm = imageVm,
                             vaultVm = aiVaultVm,
                             requestedTool = requestedAiTool,
                             onToolHandled = { requestedAiTool = null }
@@ -419,14 +439,22 @@ private fun MediaForgeRoot(
                     }
                 }
 
-                LiquidGlassBottomBar(
-                    pagerState = pagerState,
-                    onSelect = ::navigateTo,
+                val density = LocalDensity.current
+                val imeVisible = WindowInsets.ime.getBottom(density) > 0
+                AnimatedVisibility(
+                    visible = !imeVisible,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                )
+                ) {
+                    LiquidGlassBottomBar(
+                        pagerState = pagerState,
+                        onSelect = ::navigateTo
+                    )
+                }
             }
 
             ShareIntakeSheet(
@@ -476,10 +504,17 @@ private fun LiquidGlassBottomBar(
     }
 
     val pillFill = remember(isDark) {
-        if (isDark) Color.White.copy(alpha = 0.14f)
-        else Color.White.copy(alpha = 0.90f)
+        if (isDark) {
+            Brush.verticalGradient(
+                listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.06f))
+            )
+        } else {
+            Brush.verticalGradient(
+                listOf(Color.White.copy(alpha = 0.90f), Color.White.copy(alpha = 0.62f))
+            )
+        }
     }
-    val pillBorder = if (isDark) Color.White.copy(alpha = 0.16f) else Color(0xFF0F172A).copy(alpha = 0.10f)
+    val pillBorder = diagonalGlassBorder(isDark = isDark, strong = true)
 
     BoxWithConstraints(
         modifier
@@ -487,23 +522,28 @@ private fun LiquidGlassBottomBar(
             .liquidGlassChrome(
                 shape = RoundedCornerShape(28.dp),
                 hazeState = LocalHazeState.current,
-                blurRadius = 26.dp,
-                shadowElevation = 18.dp,
+                blurRadius = 14.dp,
+                shadowElevation = 14.dp,
                 strongBorder = true
             )
             .padding(6.dp)
     ) {
         val tabWidth = maxWidth / tabs.size
         val tabWidthPx = with(density) { tabWidth.toPx() }
+        val liftPx = with(density) { 1.5.dp.toPx() }
 
-        Box(Modifier.fillMaxWidth().height(54.dp)) {
-            // Sliding liquid pill reads pager offset during layout placement (0 recompositions per swipe frame)
+        Box(Modifier.fillMaxWidth().height(56.dp)) {
+            // Liquid Morphing Pill: glides 1:1 with HorizontalPager offset and stretches organically mid-flight (0 recompositions/frame)
             Box(
                 Modifier
-                    .offset {
-                        val pageFraction = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                    .graphicsLayer {
+                        val rawProgress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
                             .coerceIn(0f, tabs.lastIndex.toFloat())
-                        IntOffset((tabWidthPx * pageFraction).roundToInt(), 0)
+                        val distFromRest = abs(rawProgress - rawProgress.roundToInt())
+                        val morph = sin(distFromRest * Math.PI.toFloat())
+                        translationX = tabWidthPx * rawProgress
+                        scaleX = 1f + 0.16f * morph
+                        scaleY = 1f - 0.08f * morph
                     }
                     .width(tabWidth)
                     .fillMaxHeight()
@@ -521,14 +561,24 @@ private fun LiquidGlassBottomBar(
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(pillShape)
-                            .clickable(interactionSource = interaction, indication = null) { onSelect(tab) },
+                            .clickable(interactionSource = interaction, indication = null) { onSelect(tab) }
+                            .graphicsLayer {
+                                val rawProgress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                                    .coerceIn(0f, tabs.lastIndex.toFloat())
+                                val proximity = (1f - abs(rawProgress - index)).coerceIn(0f, 1f)
+                                val s = 0.92f + 0.12f * proximity
+                                scaleX = s
+                                scaleY = s
+                                alpha = 0.62f + 0.38f * proximity
+                                translationY = -liftPx * proximity
+                            },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
                     ) {
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = if (selected) Glass.TextPrimary else Glass.TextSecondary,
+                            tint = if (selected) (if (isDark) Glass.TextPrimary else Glass.Cyan) else Glass.TextSecondary,
                             modifier = Modifier.size(21.dp)
                         )
                         Spacer(Modifier.height(3.dp))
