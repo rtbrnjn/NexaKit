@@ -50,18 +50,11 @@ enum class LightingPreset(val label: String, val cue: String) {
     NEON_CYBERPUNK("Neon Cyberpunk", "dramatic neon cyan and magenta rim lighting, moody dark atmosphere, glossy wet reflections")
 }
 
-enum class ImageAspectRatio(val label: String, val apiValue: String, val ratioFloat: Float) {
-    SQUARE("1:1", "1:1", 1f),
-    LANDSCAPE("16:9", "16:9", 16f / 9f),
-    PORTRAIT_STORY("9:16", "9:16", 9f / 16f),
-    PORTRAIT_3_4("3:4", "3:4", 3f / 4f)
-}
-
-enum class PromptAspectRatio(val label: String, val imageRatio: ImageAspectRatio) {
-    SQUARE("1:1", ImageAspectRatio.SQUARE),
-    LANDSCAPE("16:9", ImageAspectRatio.LANDSCAPE),
-    PORTRAIT_STORY("9:16", ImageAspectRatio.PORTRAIT_STORY),
-    PORTRAIT_FEED("4:5", ImageAspectRatio.PORTRAIT_3_4)
+enum class PromptAspectRatio(val label: String) {
+    SQUARE("1:1"),
+    LANDSCAPE("16:9"),
+    PORTRAIT_STORY("9:16"),
+    PORTRAIT_FEED("4:5")
 }
 
 data class GeneratedPromptResult(
@@ -133,20 +126,6 @@ data class GeneratedPromptResult(
     }
 }
 
-class GeneratedImageResult(
-    val bytes: ByteArray,
-    val mimeType: String,
-    val modelId: String,
-    val caption: String = ""
-) {
-    val fileExtension: String
-        get() = when {
-            mimeType.contains("jpeg", ignoreCase = true) || mimeType.contains("jpg", ignoreCase = true) -> "jpg"
-            mimeType.contains("webp", ignoreCase = true) -> "webp"
-            else -> "png"
-        }
-}
-
 internal fun buildPromptMakerSystemPrompt(): String = buildString {
     appendLine("You are an elite AI visual prompt engineer for Midjourney, Flux, Google Imagen, Gemini Image, and cinematic AI video generators.")
     appendLine("Transform the user's short concept (in any language) into a cohesive, vivid, production-ready English prompt plus a crisp Negative Prompt.")
@@ -200,14 +179,19 @@ internal fun buildProductCopyPrompt(language: CopyLanguage, notes: String): Stri
     if (notes.isNotBlank()) appendLine("Seller notes to respect: ${notes.trim()}")
 }
 
-internal fun buildDocumentSystemPrompt(documentText: String?): String = buildString {
-    appendLine("You are DocPix's document assistant. Answer strictly from the document provided; if the answer is not in the document, say so.")
-    appendLine("Reply in the language the user writes in unless asked to translate. Use clean, concise Markdown.")
-    if (!documentText.isNullOrBlank()) {
-        appendLine()
-        appendLine("=== DOCUMENT START ===")
-        appendLine(documentText)
-        appendLine("=== DOCUMENT END ===")
+internal fun buildDocumentSystemPrompt(documentText: String?, hasImages: Boolean = false): String = buildString {
+    if (!documentText.isNullOrBlank() || hasImages) {
+        appendLine("You are DocPix's document assistant. Answer strictly from the document provided; if the answer is not in the document, say so.")
+        appendLine("Reply in the language the user writes in unless asked to translate. Use clean, concise Markdown.")
+        if (!documentText.isNullOrBlank()) {
+            appendLine()
+            appendLine("=== DOCUMENT START ===")
+            appendLine(documentText)
+            appendLine("=== DOCUMENT END ===")
+        }
+    } else {
+        appendLine("You are DocPix's helpful AI assistant. Give clear, accurate, concise answers in the user's language.")
+        appendLine("Format responses cleanly with Markdown (**bold**, *italic*, bullet points '- ', and `code` where helpful).")
     }
 }
 
@@ -225,42 +209,6 @@ internal object SseHttp {
             conn.readTimeout = 30_000
             headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
             conn.setRequestProperty("Accept", "application/json")
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) throw mapHttpError(providerName, code, text)
-            text
-        } catch (e: GeminiException) {
-            throw e
-        } catch (_: UnknownHostException) {
-            throw GeminiException(GeminiException.Kind.OFFLINE, "No internet connection – Offline Mode is active.")
-        } catch (_: SocketTimeoutException) {
-            throw GeminiException(GeminiException.Kind.OFFLINE, "The request timed out. Check your connection and retry.")
-        } catch (e: IOException) {
-            throw GeminiException(GeminiException.Kind.OFFLINE, "Network error: ${e.message ?: "connection failed"}")
-        } finally {
-            conn.disconnect()
-        }
-    }
-
-    suspend fun postJson(
-        url: String,
-        headers: Map<String, String>,
-        body: JSONObject,
-        providerName: String,
-        readTimeoutMs: Int = 90_000
-    ): String = withContext(Dispatchers.IO) {
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 20_000
-            readTimeout = readTimeoutMs
-            doOutput = true
-            headers.forEach { (k, v) -> setRequestProperty(k, v) }
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-        }
-        try {
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()

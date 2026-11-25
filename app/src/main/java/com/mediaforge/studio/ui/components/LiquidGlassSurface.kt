@@ -75,31 +75,31 @@ val LocalBackdropHazeState = compositionLocalOf<HazeState?> { null }
 
 @Composable
 fun plainGlassSheetColor(isDark: Boolean = Glass.IsDark): Color =
-    if (isDark) Color(0xCC0D131D) else Color(0xD9F4F8FC)
+    if (isDark) Color(0xD6101829) else Color(0xE0F2F7FC)
 
 @Composable
 fun plainGlassBorderColor(isDark: Boolean = Glass.IsDark, strong: Boolean = false): Color =
-    if (isDark) Color.White.copy(alpha = if (strong) 0.35f else 0.24f)
-    else Color.White.copy(alpha = if (strong) 0.88f else 0.72f)
+    if (isDark) Color.White.copy(alpha = if (strong) 0.38f else 0.26f)
+    else Color.White.copy(alpha = if (strong) 0.90f else 0.76f)
 
 /**
  * True Clear Translucent Glass vertical sheen fill:
- * Dark Mode: `0.05f` white top -> `0.015f` white bottom (clear, never muddy black).
- * Light Mode: `0.55f` white top -> `0.30f` white bottom (airy frosted refraction).
+ * Dark Mode: `0.06f` white top -> `0.018f` white bottom over luminous aurora orbs.
+ * Light Mode: `0.58f` white top -> `0.30f` white bottom floating cleanly over daylight studio orbs.
  */
 @Composable
 fun clearGlassFillBrush(isDark: Boolean = Glass.IsDark): Brush = remember(isDark) {
     if (isDark) {
         Brush.verticalGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.05f),
-                Color.White.copy(alpha = 0.015f)
+                Color.White.copy(alpha = 0.06f),
+                Color.White.copy(alpha = 0.018f)
             )
         )
     } else {
         Brush.verticalGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.55f),
+                Color.White.copy(alpha = 0.58f),
                 Color.White.copy(alpha = 0.30f)
             )
         )
@@ -108,8 +108,8 @@ fun clearGlassFillBrush(isDark: Boolean = Glass.IsDark): Brush = remember(isDark
 
 /**
  * Diagonal Specular Rim Highlight (`1.dp` border):
- * Dark Mode: `0.35f` white top-left -> `0.06f` white bottom-right.
- * Light Mode: `0.85f` white top-left -> `0.20f` white bottom-right.
+ * Dark Mode: `0.38f` white top-left -> `0.08f` white bottom-right.
+ * Light Mode: `0.88f` white top-left -> `0.24f` white bottom-right.
  */
 @Composable
 fun diagonalGlassBorder(isDark: Boolean = Glass.IsDark, strong: Boolean = false): Brush =
@@ -117,23 +117,23 @@ fun diagonalGlassBorder(isDark: Boolean = Glass.IsDark, strong: Boolean = false)
         if (isDark) {
             Brush.linearGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = if (strong) 0.42f else 0.35f),
-                    Color.White.copy(alpha = if (strong) 0.16f else 0.12f),
-                    Color.White.copy(alpha = 0.06f)
+                    Color.White.copy(alpha = if (strong) 0.45f else 0.38f),
+                    Color.White.copy(alpha = if (strong) 0.18f else 0.14f),
+                    Color.White.copy(alpha = 0.08f)
                 )
             )
         } else {
             Brush.linearGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = if (strong) 0.92f else 0.85f),
-                    Color.White.copy(alpha = if (strong) 0.55f else 0.46f),
-                    Color.White.copy(alpha = 0.20f)
+                    Color.White.copy(alpha = if (strong) 0.94f else 0.88f),
+                    Color.White.copy(alpha = if (strong) 0.58f else 0.48f),
+                    Color.White.copy(alpha = 0.24f)
                 )
             )
         }
     }
 
-// ------------------------------------------------------------------ Ambient Soft Light Orbs + Micro-Dot Grid Backdrop
+// ------------------------------------------------------------------ Luminous Deep Aurora & Daylight Studio Backdrop
 
 @Composable
 fun LiquidGlassBackdrop(
@@ -142,48 +142,73 @@ fun LiquidGlassBackdrop(
     chromeHaze: HazeState? = LocalHazeState.current,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val bg = Glass.Bg
     val isDark = Glass.IsDark
     val activeChromeHaze = if (supportsNativeLiquidGlassBlur()) chromeHaze else null
 
-    val orbPrimary = if (isDark) Color(0xFF1D4ED8).copy(alpha = 0.20f) else Color(0xFF93C5FD).copy(alpha = 0.38f)
-    val orbSecondary = if (isDark) Color(0xFF0E7490).copy(alpha = 0.18f) else Color(0xFFA7F3D0).copy(alpha = 0.30f)
-    val orbAccent = if (isDark) Color(0xFF1D4ED8).copy(alpha = 0.11f) else Color(0xFF93C5FD).copy(alpha = 0.20f)
-    val dotColor = if (isDark) Color.White.copy(alpha = 0.05f) else Color(0xFF0F172A).copy(alpha = 0.05f)
+    val baseTop = if (isDark) Color(0xFF10192D) else Color(0xFFF7FAFE)
+    val baseMid = if (isDark) Color(0xFF0D1320) else Color(0xFFF0F5FA)
+    val baseBot = if (isDark) Color(0xFF0B101C) else Color(0xFFE9F1F9)
 
-    // Static GPU-cached orbs + 22.dp micro-dot grid for crisp glass refraction at locked 60/120fps.
+    // Luminous Mesh Orbs tuned for vivid glass refraction while preserving WCAG AA text contrast everywhere.
+    val orbPrimary = if (isDark) Color(0xFF2563EB).copy(alpha = 0.32f) else Color(0xFF60A5FA).copy(alpha = 0.42f)
+    val orbSecondary = if (isDark) Color(0xFF06B6D4).copy(alpha = 0.26f) else Color(0xFF34D399).copy(alpha = 0.32f)
+    val orbTertiary = if (isDark) Color(0xFF6366F1).copy(alpha = 0.24f) else Color(0xFFA78BFA).copy(alpha = 0.30f)
+    val beamPrimary = if (isDark) Color.White.copy(alpha = 0.055f) else Color.White.copy(alpha = 0.40f)
+    val beamTint = if (isDark) Color(0xFF38BDF8).copy(alpha = 0.05f) else Color(0xFF93C5FD).copy(alpha = 0.14f)
+    val dotColor = if (isDark) Color.White.copy(alpha = 0.055f) else Color(0xFF0F172A).copy(alpha = 0.055f)
+
+    // Static GPU-cached architectural aurora & daylight studio canvas (zero per-frame invalidation, 60/120fps locked).
     Box(modifier.fillMaxSize()) {
         Box(
             Modifier
                 .fillMaxSize()
                 .let { if (activeChromeHaze != null) it.hazeSource(activeChromeHaze, zIndex = 0f) else it }
-                .background(bg)
                 .drawWithCache {
                     val w = size.width
                     val h = size.height
 
-                    val centerA = Offset(w * 0.20f, h * 0.16f)
-                    val radiusA = (w * 0.85f).coerceAtLeast(1f)
-                    val brushA = Brush.radialGradient(
-                        colors = listOf(orbPrimary, Color.Transparent),
-                        center = centerA,
-                        radius = radiusA
+                    val baseWash = Brush.verticalGradient(
+                        colors = listOf(baseTop, baseMid, baseBot),
+                        startY = 0f,
+                        endY = h
                     )
 
-                    val centerB = Offset(w * 0.82f, h * 0.74f)
-                    val radiusB = (w * 0.82f).coerceAtLeast(1f)
-                    val brushB = Brush.radialGradient(
-                        colors = listOf(orbSecondary, Color.Transparent),
-                        center = centerB,
-                        radius = radiusB
+                    val centerCobalt = Offset(w * 0.14f, h * 0.13f)
+                    val radiusCobalt = (w * 0.94f).coerceAtLeast(1f)
+                    val brushCobalt = Brush.radialGradient(
+                        colors = listOf(orbPrimary, orbPrimary.copy(alpha = orbPrimary.alpha * 0.35f), Color.Transparent),
+                        center = centerCobalt,
+                        radius = radiusCobalt
                     )
 
-                    val centerC = Offset(w * 0.78f, h * 0.30f)
-                    val radiusC = (w * 0.62f).coerceAtLeast(1f)
-                    val brushC = Brush.radialGradient(
-                        colors = listOf(orbAccent, Color.Transparent),
-                        center = centerC,
-                        radius = radiusC
+                    val centerCyan = Offset(w * 0.90f, h * 0.44f)
+                    val radiusCyan = (w * 0.86f).coerceAtLeast(1f)
+                    val brushCyan = Brush.radialGradient(
+                        colors = listOf(orbSecondary, orbSecondary.copy(alpha = orbSecondary.alpha * 0.32f), Color.Transparent),
+                        center = centerCyan,
+                        radius = radiusCyan
+                    )
+
+                    val centerViolet = Offset(w * 0.22f, h * 0.84f)
+                    val radiusViolet = (w * 0.92f).coerceAtLeast(1f)
+                    val brushViolet = Brush.radialGradient(
+                        colors = listOf(orbTertiary, orbTertiary.copy(alpha = orbTertiary.alpha * 0.30f), Color.Transparent),
+                        center = centerViolet,
+                        radius = radiusViolet
+                    )
+
+                    // Subtle architectural diagonal light beam to anchor glass specular rim refraction
+                    val diagonalBeam = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.Transparent,
+                            0.36f to Color.Transparent,
+                            0.48f to beamPrimary,
+                            0.55f to beamTint,
+                            0.67f to Color.Transparent,
+                            1.00f to Color.Transparent
+                        ),
+                        start = Offset(0f, h * 0.08f),
+                        end = Offset(w, h * 0.72f)
                     )
 
                     val spacingPx = 22.dp.toPx().coerceAtLeast(12f)
@@ -202,9 +227,11 @@ fun LiquidGlassBackdrop(
                     }
 
                     onDrawBehind {
-                        drawCircle(brush = brushA, center = centerA, radius = radiusA)
-                        drawCircle(brush = brushC, center = centerC, radius = radiusC)
-                        drawCircle(brush = brushB, center = centerB, radius = radiusB)
+                        drawRect(brush = baseWash)
+                        drawCircle(brush = brushCobalt, center = centerCobalt, radius = radiusCobalt)
+                        drawCircle(brush = brushCyan, center = centerCyan, radius = radiusCyan)
+                        drawCircle(brush = brushViolet, center = centerViolet, radius = radiusViolet)
+                        drawRect(brush = diagonalBeam)
                         if (points.isNotEmpty()) {
                             drawPoints(
                                 points = points,

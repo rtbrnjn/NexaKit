@@ -6,19 +6,26 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ---
 
-## Download & Install APK (`v1.4.8`)
+## Download & Install APK (`v1.4.9`)
 
-- **Direct Download (`v1.4.8`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.8/DocPix.apk)
+- **Direct Download (`v1.4.9`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.9/DocPix.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
-1. Unduh `DocPix.apk` dari halaman Releases di atas (atau cukup tekan **"Update Sekarang"** langsung dari dalam aplikasi DocPix!).
+1. Unduh `DocPix.apk` dari halaman Releases di atas (atau cukup tekan **"Update Sekarang"** langsung dari dalam aplikasi DocPix v1.4.8+ untuk unduh & instalasi otomatis!).
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.7** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
+3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.8** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
 
 ---
 
-## What's New in v1.4.8 ("In-App APK Auto-Updater & Automatic Package Installer")
+## What's New in v1.4.9 ("Luminous Aurora & Daylight Backdrop, Markdown AI Formatting & Streamlined 2-Tab AI Studio")
+- **Latar Belakang Luminous Aurora & Daylight Studio (Anti-Slop UI + WCAG AA Verified):**
+  - **Dark Mode:** Dasar *Deep Midnight Navy* (`#0D1320`) berpadu 3 *Luminous Mesh Light Orbs* (**Electric Cobalt `#2563EB`** `0.32f`, **Luminous Cyan `#06B6D4`** `0.26f`, **Soft Violet `#6366F1`** `0.24f`), sorotan *diagonal architectural light beam*, dan *micro-dot grid* `22.dp` di dalam `drawWithCache` (60/120fps tanpa lag).
+  - **Light Mode:** Dasar *Crisp Ice White* (`#F0F5FA`) dengan *Luminous Pastel Mesh Orbs* (**Cerulean Sky `#60A5FA`** `0.42f`, **Mint Aqua `#34D399`** `0.32f`, **Soft Periwinkle `#A78BFA`** `0.30f`) di balik kartu kaca bening `0.58f → 0.30f` dengan kontras teks terverifikasi WCAG AA.
+- **Markdown-to-`AnnotatedString` pada Jawaban AI Studio & Chat PDF:** Gelembung jawaban AI kini merender `**teks tebal**`, `*teks miring*`, `• ` bullet list rapi, heading, dan `` `inline code` `` monospace tanpa menampilkan karakter bintang mentah (`**` / `*`).
+- **AI Studio Lebih Rapi (2 Tab Utama & Hapus Image Creation):** Seluruh kode/UI *Image Creation* dihapus; pemilih mode AI Studio kini tampil ringkas dengan 2 tab fungsional: **Chat & Tanya PDF** (mendukung chat umum sekaligus ringkas/tanya dokumen PDF) dan **Prompt Generator**.
+
+## Highlights in v1.4.8 ("In-App APK Auto-Updater & Automatic Package Installer")
 - **Unduh Pembaruan Langsung di Dalam Aplikasi (Tanpa Browser):** Menekan **"Update Sekarang"** pada dialog pembaruan *Liquid Glass* kini mengunduh `DocPix.apk` langsung secara internal (`Dispatchers.IO`) dengan penanganan *redirect* GitHub Releases otomatis dan validasi integritas APK menuju `cacheDir/updates/DocPix-update.apk`.
 - **Liquid Glass Progress Bar Real-Time (0% – 100%):** Dialog pembaruan menampilkan progress bar halus, persentase unduhan real-time, ukuran byte terunduh/total, serta tombol batal unduhan.
 - **Pemicu Layar Pemasangan Android Otomatis:**
@@ -121,12 +128,10 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 13. **Protect / Encrypt PDF** — Enkripsi kata sandi 128-bit (`StandardProtectionPolicy`) beserta izin cetak/salin.
 14. **Unlock / Decrypt PDF** — Hapus proteksi kata sandi pada PDF milik pengguna.
 
-### 3. AI Studio (Dual-Engine Groq LPU + Gemini & Image Creation)
-- **Smart PDF Assistant** — Ekstraksi halaman selektif, **ML Kit Local OCR** untuk scanned PDF + opsi **Vision Mode**, budget karakter (`12K` / `30K` / `80K`), tombol cepat **Tempel / Bersihkan**, dan streaming SSE real-time.
-- **Prompt Generator (Prompt Maker)** — Buat prompt Bahasa Inggris terstruktur + *Negative Prompt* untuk Midjourney, Flux, Imagen/Gemini, dan AI Video lengkap dengan gaya visual, pencahayaan, rasio, dan kirim langsung ke Image Creation.
-- **Image Creation (AI Image Generator)** — Generasi gambar via Gemini / Imagen REST API (`1:1`, `16:9`, `9:16`, `3:4`), pratinjau bingkai *Liquid Glass*, simpan langsung ke `Pictures/DocPix`, dan bagikan.
-- **Product Photo Copywriter** — Auto-kompresi (`768px` / `75%` JPEG), tombol cepat **Tempel / Bersihkan**, serta streaming judul produk, 3 hook video pendek, dan caption + hashtag siap salin.
-- **AI History Vault** — Riwayat PDF AI, Prompt, dan Copywriting tersimpan offline di Room Database (`nexakit_ai_vault.db`).
+### 3. AI Studio (Dual-Engine Groq LPU + Gemini)
+- **Chat & Tanya PDF** — Chat AI langsung atau lampirkan PDF dengan ekstraksi halaman selektif, **ML Kit Local OCR** untuk scanned PDF + opsi **Vision Mode**, budget karakter (`12K` / `30K` / `80K`), tombol cepat **Tempel / Bersihkan**, rendering **Markdown** (*bold*, *italic*, bullet list, *inline code*), dan streaming SSE real-time.
+- **Prompt Generator** — Buat prompt Bahasa Inggris terstruktur + *Negative Prompt* untuk Midjourney, Flux, Imagen/Gemini, dan AI Video lengkap dengan gaya visual, pencahayaan, dan rasio aspek.
+- **AI History Vault** — Riwayat Chat, Ringkasan PDF, dan Prompt tersimpan offline di Room Database (`nexakit_ai_vault.db`).
 - **Android Share Target** — Kirim gambar/PDF langsung dari WhatsApp, Galeri, atau File Manager ke DocPix.
 
 ---

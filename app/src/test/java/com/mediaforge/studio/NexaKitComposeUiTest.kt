@@ -93,33 +93,32 @@ class NexaKitMainNavigationUiTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
 
-        // 3. Navigate to AI Studio, verify Prompt Generator, Image Creation, Copywriter Quick Paste & Reset, and AI Vault
+        // 3. Navigate to AI Studio, verify streamlined 2-tab mode (Chat & Tanya PDF + Prompt Generator), no Image Creation, and AI Vault
         composeRule.onNodeWithText("AI Studio").performClick()
         composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
+        composeRule.onNodeWithText("Chat & Tanya PDF").assertIsDisplayed()
+        composeRule.onNodeWithText("Prompt Generator").assertIsDisplayed()
+        composeRule.onNodeWithText("Image AI").assertDoesNotExist()
 
-        composeRule.onNodeWithText("Prompt").performScrollTo().performClick()
-        composeRule.onNodeWithText("Ide Singkat Anda").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Liquid Glass 3D").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Buat Prompt Profesional").performScrollTo().assertIsDisplayed()
-
-        composeRule.onNodeWithText("Image AI").performScrollTo().performClick()
-        composeRule.onNodeWithText("Prompt Gambar AI").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Generate Gambar AI").performScrollTo().assertIsDisplayed()
-
-        composeRule.onNodeWithText("Copywriter").performScrollTo().performClick()
-        composeRule.onNodeWithText("Tempel").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Bersihkan").performScrollTo().assertIsNotEnabled()
-        composeRule.onNodeWithText("Optional Product Notes").performScrollTo().performTextInput("Kopi arabika 250g")
+        composeRule.onNodeWithText("Tempel").assertIsDisplayed()
+        composeRule.onNodeWithText("Bersihkan").assertIsNotEnabled()
+        composeRule.onNodeWithText("Tanya apa saja atau tentang PDF…").performTextInput("Jelaskan poin penting")
         composeRule.onNodeWithText("Bersihkan").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Bersihkan").assertIsNotEnabled()
 
-        composeRule.onNodeWithText("AI Vault").performScrollTo().performClick()
+        composeRule.onNodeWithText("Prompt Generator").performClick()
+        composeRule.onNodeWithText("Ide Singkat Anda").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Liquid Glass 3D").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Buat Prompt Profesional").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Kirim ke Image Creation").assertDoesNotExist()
+
+        composeRule.onNodeWithContentDescription("AI Vault").performClick()
         composeRule.onNodeWithText("AI History Vault is empty").assertIsDisplayed()
 
         // 4. Navigate to Settings, verify About DocPix + Adaptive Icon + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("DocPix v1.4.8 (Build 15)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.9 (Build 16)").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("DocPix app icon").assertIsDisplayed()
         composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
@@ -443,48 +442,17 @@ class LiquidGlassComponentsUiTest {
     }
 
     @Test
-    fun geminiImageParsers_extractInlineDataAndImagenPredictions() {
-        val samplePayload = android.util.Base64.encodeToString("fake-png-bytes".toByteArray(), android.util.Base64.NO_WRAP)
-        val genContentJson = """
-            {
-              "candidates": [
-                {
-                  "content": {
-                    "parts": [
-                      { "text": "Astronaut cat rendered cleanly." },
-                      { "inlineData": { "mimeType": "image/png", "data": "$samplePayload" } }
-                    ]
-                  }
-                }
-              ]
+    fun markdownText_rendersFormattedAiReplyWithoutRawMarkdownSymbols() {
+        composeRule.setContent {
+            MediaForgeTheme(themeMode = ThemeMode.DARK) {
+                com.mediaforge.studio.ui.components.MarkdownText(
+                    text = "**Ringkasan Utama**\n- Proses *cepat* dan `offline`"
+                )
             }
-        """.trimIndent()
-        val fromGemini = com.mediaforge.studio.ai.GeminiClient.extractGeneratedImageFromGenerateContent(
-            genContentJson,
-            "gemini-2.5-flash-image"
-        )
-        org.junit.Assert.assertEquals("image/png", fromGemini?.mimeType)
-        org.junit.Assert.assertEquals("png", fromGemini?.fileExtension)
-        org.junit.Assert.assertEquals("fake-png-bytes", fromGemini?.bytes?.toString(Charsets.UTF_8))
-        org.junit.Assert.assertEquals("Astronaut cat rendered cleanly.", fromGemini?.caption)
-
-        val imagenJson = """
-            {
-              "predictions": [
-                {
-                  "mimeType": "image/jpeg",
-                  "bytesBase64Encoded": "$samplePayload"
-                }
-              ]
-            }
-        """.trimIndent()
-        val fromImagen = com.mediaforge.studio.ai.GeminiClient.extractGeneratedImageFromImagenPredict(
-            imagenJson,
-            "imagen-4.0-generate-001"
-        )
-        org.junit.Assert.assertEquals("image/jpeg", fromImagen?.mimeType)
-        org.junit.Assert.assertEquals("jpg", fromImagen?.fileExtension)
-        org.junit.Assert.assertEquals("fake-png-bytes", fromImagen?.bytes?.toString(Charsets.UTF_8))
+        }
+        composeRule.onNodeWithText("Ringkasan Utama", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("•  Proses cepat dan  offline ", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("**", substring = true).assertDoesNotExist()
     }
 
     @Test

@@ -109,7 +109,6 @@ import com.mediaforge.studio.vm.CopywriterViewModel
 import com.mediaforge.studio.vm.DocumentScannerViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
 import com.mediaforge.studio.vm.ExtractPdfTextViewModel
-import com.mediaforge.studio.vm.ImageCreationViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
 import com.mediaforge.studio.vm.MergePdfViewModel
 import com.mediaforge.studio.vm.MockupViewModel
@@ -237,12 +236,12 @@ private fun MediaForgeRoot(
     val copyVm: CopywriterViewModel = viewModel()
     val pdfAiVm: PdfAiViewModel = viewModel()
     val promptVm: PromptGeneratorViewModel = viewModel()
-    val imageVm: ImageCreationViewModel = viewModel()
     val aiVaultVm: AiVaultViewModel = viewModel()
 
     var requestedMediaTool by remember { mutableStateOf<MediaTool?>(null) }
     var requestedPdfTool by remember { mutableStateOf<PdfTool?>(null) }
     var requestedAiTool by remember { mutableStateOf<AiTool?>(null) }
+    var requestedShareCopywriter by remember { mutableStateOf(false) }
     var recentFiles by remember { mutableStateOf<List<SavedFile>>(emptyList()) }
 
     val results by coordinator.results.collectAsState()
@@ -321,7 +320,7 @@ private fun MediaForgeRoot(
             }
             ShareAction.AI_COPYWRITER -> {
                 req.images.firstOrNull()?.let { copyVm.pick(it) }
-                requestedAiTool = AiTool.COPYWRITER
+                requestedShareCopywriter = true
                 navigateTo(TopTab.GEMINI_AI)
             }
             ShareAction.AI_PDF_SUMMARY -> {
@@ -431,10 +430,12 @@ private fun MediaForgeRoot(
                             copyVm = copyVm,
                             pdfAiVm = pdfAiVm,
                             promptVm = promptVm,
-                            imageVm = imageVm,
                             vaultVm = aiVaultVm,
                             requestedTool = requestedAiTool,
-                            onToolHandled = { requestedAiTool = null }
+                            onToolHandled = { requestedAiTool = null },
+                            requestedShareCopywriter = requestedShareCopywriter,
+                            onShareCopywriterHandled = { requestedShareCopywriter = false },
+                            isTabActive = currentTabPage == TopTab.GEMINI_AI.ordinal
                         )
                         TopTab.SETTINGS -> SettingsScreen(settingsVm)
                     }

@@ -377,7 +377,7 @@ class MediaForgeUnitTest {
     }
 
     @Test
-    fun promptGeneratorAndImageCreationModels_parseAndExposeExpectedOptions() {
+    fun promptGeneratorModels_parseAndExposeExpectedOptions() {
         assertEquals(
             listOf("Cinematic Photo", "Liquid Glass 3D", "Anime", "Minimalist Vector", "Product Studio"),
             com.mediaforge.studio.ai.VisualStyle.entries.map { it.label }
@@ -389,10 +389,6 @@ class MediaForgeUnitTest {
         assertEquals(
             listOf("1:1", "16:9", "9:16", "4:5"),
             com.mediaforge.studio.ai.PromptAspectRatio.entries.map { it.label }
-        )
-        assertEquals(
-            listOf("1:1", "16:9", "9:16", "3:4"),
-            com.mediaforge.studio.ai.ImageAspectRatio.entries.map { it.label }
         )
 
         val raw = """
@@ -410,6 +406,33 @@ class MediaForgeUnitTest {
         assertTrue(parsed.negativePrompt.contains("watermark"))
         assertTrue(parsed.tips.contains("low-angle"))
         assertTrue(parsed.asCopyableText().contains("Negative Prompt:"))
+    }
+
+    @Test
+    fun markdownParser_rendersBoldItalicCodeAndBulletsWithoutRawStars() {
+        val sample = """
+            ## Ringkasan Dokumen
+            - **Poin utama** ini memakai *teks miring* dan `kode_lokal`
+            * Item kedua dengan ***tebal miring***
+            Paragraf streaming **tanpa penutup
+        """.trimIndent()
+
+        val rendered = com.mediaforge.studio.ui.components.parseMarkdownToAnnotatedString(sample)
+        val plain = rendered.text
+        assertFalse("Must not leak raw ** markers", plain.contains("**"))
+        assertFalse("Must not leak raw * markers", plain.contains("*"))
+        assertFalse("Must not leak raw backticks", plain.contains("`"))
+        assertTrue(plain.contains("Ringkasan Dokumen"))
+        assertTrue(plain.contains("•  Poin utama ini memakai teks miring dan  kode_lokal "))
+        assertTrue(plain.contains("•  Item kedua dengan tebal miring"))
+        assertTrue(plain.contains("Paragraf streaming tanpa penutup"))
+
+        val hasBold = rendered.spanStyles.any { it.item.fontWeight == androidx.compose.ui.text.font.FontWeight.Bold }
+        val hasItalic = rendered.spanStyles.any { it.item.fontStyle == androidx.compose.ui.text.font.FontStyle.Italic }
+        val hasMono = rendered.spanStyles.any { it.item.fontFamily == androidx.compose.ui.text.font.FontFamily.Monospace }
+        assertTrue(hasBold)
+        assertTrue(hasItalic)
+        assertTrue(hasMono)
     }
 
     @Test

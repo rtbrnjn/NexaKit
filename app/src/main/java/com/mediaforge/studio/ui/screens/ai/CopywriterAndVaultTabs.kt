@@ -65,6 +65,7 @@ import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
+import com.mediaforge.studio.ui.components.MarkdownText
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.ToolPage
 import com.mediaforge.studio.ui.components.bringIntoViewOnFocus
@@ -251,7 +252,7 @@ internal fun CopywriterTab(
                 }
                 if (streamingText.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
-                    Text(streamingText, style = MaterialTheme.typography.bodySmall, color = Glass.TextPrimary)
+                    MarkdownText(streamingText, style = MaterialTheme.typography.bodySmall, color = Glass.TextPrimary)
                 }
             }
         }
@@ -424,8 +425,8 @@ internal fun AiVaultTab(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        item.content,
+                    MarkdownText(
+                        text = item.content,
                         style = MaterialTheme.typography.bodySmall,
                         color = Glass.TextSecondary,
                         maxLines = if (expanded) Int.MAX_VALUE else 4,

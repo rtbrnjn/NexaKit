@@ -39,40 +39,40 @@ data class GlassPalette(
 
 val DarkGlassPalette = GlassPalette(
     isDark = true,
-    bg = Color(0xFF090C10),
-    surface = Color(0xFF101622),
-    cardFill = Color.White.copy(alpha = 0.045f),
-    cardFillSubtle = Color.White.copy(alpha = 0.03f),
-    navFill = Color.White.copy(alpha = 0.06f),
-    stroke = Color.White.copy(alpha = 0.16f),
-    cyan = Color(0xFF93C5FD),
-    emerald = Color(0xFF6EE7B7),
-    indigo = Color(0xFF94A3B8),
-    amber = Color(0xFFFCD34D),
-    danger = Color(0xFFF472B6),
-    onAccent = Color(0xFF090C10),
+    bg = Color(0xFF0D1320),
+    surface = Color(0xFF131C2E),
+    cardFill = Color.White.copy(alpha = 0.055f),
+    cardFillSubtle = Color.White.copy(alpha = 0.035f),
+    navFill = Color.White.copy(alpha = 0.07f),
+    stroke = Color.White.copy(alpha = 0.18f),
+    cyan = Color(0xFF38BDF8),
+    emerald = Color(0xFF34D399),
+    indigo = Color(0xFF818CF8),
+    amber = Color(0xFFFBBF24),
+    danger = Color(0xFFFB7185),
+    onAccent = Color(0xFF090E18),
     textPrimary = Color(0xFFF8FAFC),
-    textSecondary = Color(0xFFB4C0D2),
-    textDim = Color(0xFF728199)
+    textSecondary = Color(0xFFCBD5E1),
+    textDim = Color(0xFFA6B6CC)
 )
 
 val LightGlassPalette = GlassPalette(
     isDark = false,
-    bg = Color(0xFFEDF2F7),
-    surface = Color(0xFFF8FAFC),
-    cardFill = Color.White.copy(alpha = 0.48f),
-    cardFillSubtle = Color.White.copy(alpha = 0.36f),
-    navFill = Color.White.copy(alpha = 0.50f),
-    stroke = Color.White.copy(alpha = 0.65f),
+    bg = Color(0xFFF0F5FA),
+    surface = Color(0xFFF8FBFF),
+    cardFill = Color.White.copy(alpha = 0.50f),
+    cardFillSubtle = Color.White.copy(alpha = 0.38f),
+    navFill = Color.White.copy(alpha = 0.54f),
+    stroke = Color.White.copy(alpha = 0.72f),
     cyan = Color(0xFF1D4ED8),
-    emerald = Color(0xFF0F766E),
-    indigo = Color(0xFF475569),
+    emerald = Color(0xFF047857),
+    indigo = Color(0xFF4338CA),
     amber = Color(0xFFB45309),
     danger = Color(0xFFBE123C),
     onAccent = Color.White,
     textPrimary = Color(0xFF0F172A),
-    textSecondary = Color(0xFF334155),
-    textDim = Color(0xFF64748B)
+    textSecondary = Color(0xFF1E293B),
+    textDim = Color(0xFF475569)
 )
 
 val LocalGlassPalette = staticCompositionLocalOf { DarkGlassPalette }

@@ -50,7 +50,7 @@ class GroqClient {
         history: List<GeminiContent>
     ): Flow<String> {
         val messages = JSONArray()
-        messages.put(JSONObject().put("role", "system").put("content", buildDocumentSystemPrompt(documentText)))
+        messages.put(JSONObject().put("role", "system").put("content", buildDocumentSystemPrompt(documentText, pageImages.isNotEmpty())))
 
         val firstUserIdx = history.indexOfFirst { it.role == "user" }
         history.forEachIndexed { idx, turn ->

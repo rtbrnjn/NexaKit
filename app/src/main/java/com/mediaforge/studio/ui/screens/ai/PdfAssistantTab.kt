@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.PictureAsPdf
@@ -56,7 +57,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mediaforge.studio.ai.DocTask
 import com.mediaforge.studio.ui.components.ChoiceRow
-import com.mediaforge.studio.ui.components.EmptyPicker
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassChip
@@ -64,6 +64,7 @@ import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.GlassSwitch
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
+import com.mediaforge.studio.ui.components.MarkdownText
 import com.mediaforge.studio.ui.components.ProgressOverlay
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.StatusBanner
@@ -116,33 +117,27 @@ internal fun PdfAssistantTab(
                 .imePadding()
                 .let { if (hazeState != null) it.hazeSource(hazeState, zIndex = 1f) else it }
                 .padding(horizontal = 16.dp)
-                .padding(top = topPadding, bottom = if (imeOpen) 16.dp else 120.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(top = topPadding, bottom = if (imeOpen) 12.dp else 108.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             StatusBanner(message, vm::dismissMessage)
 
             val src = source
-            if (src == null) {
-                EmptyPicker(
-                    title = "Open a PDF Document",
-                    subtitle = "Smart page range + Local ML Kit OCR for scanned PDFs",
-                    icon = Icons.Rounded.PictureAsPdf,
-                    onClick = { picker.launch(arrayOf("application/pdf")) }
-                )
-            } else {
-                GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(12.dp)) {
+            if (src != null) {
+                GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.PictureAsPdf, null, tint = Glass.Cyan)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(src.name, style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${src.pageCount}p • $extractInfo", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 2)
+                            Text("${src.pageCount}p • $extractInfo", style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         GlassIconButton(Icons.Rounded.Tune, "Page scope & OCR", { showScope = !showScope }, tint = if (showScope) Glass.Cyan else Glass.TextSecondary)
                         if (messages.isNotEmpty()) {
-                            GlassIconButton(Icons.Rounded.DeleteSweep, "Clear chat", vm::clearChat)
+                            GlassIconButton(Icons.Rounded.DeleteSweep, "Bersihkan chat", vm::clearChat)
                         }
-                        GlassButton("Open", primary = false, compact = true, onClick = { picker.launch(arrayOf("application/pdf")) })
+                        GlassIconButton(Icons.Rounded.Close, "Lepas PDF", vm::clearDocument, tint = Glass.TextSecondary)
+                        GlassButton("Ganti", primary = false, compact = true, onClick = { picker.launch(arrayOf("application/pdf")) })
                     }
 
                     if (showScope) {
@@ -175,7 +170,7 @@ internal fun PdfAssistantTab(
                         Spacer(Modifier.height(8.dp))
                         SectionLabel("Character Budget")
                         Spacer(Modifier.height(6.dp))
-                        ChoiceRow(ExtractDepth.entries, depth, { it.label }, vm::setDepth)
+                        ChoiceRow(ExtractDepth.entries, depth, { it.label }, onSelect = vm::setDepth)
 
                         if (isScannedPdf || visionMode) {
                             Spacer(Modifier.height(10.dp))
@@ -189,137 +184,193 @@ internal fun PdfAssistantTab(
                         }
                     }
                 }
+            }
 
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DocTask.entries.forEach { task ->
-                        GlassChip(
-                            text = task.label,
-                            selected = false,
-                            onClick = { if (aiReady && !isStreaming) vm.runDocTask(task) },
-                            color = Glass.Emerald
-                        )
-                    }
-                }
-
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp)
-                ) {
-                    if (messages.isEmpty()) {
-                        item {
-                            GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(16.dp)) {
-                                Text("Ready to analyze \"${src.name}\"", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
-                                Spacer(Modifier.height(4.dp))
-                                Hint("Tap a quick action above or ask a question below. Results stream live and archive to AI Vault.")
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 2.dp)
+            ) {
+                if (src != null) {
+                    item(key = "docTasks") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DocTask.entries.forEach { task ->
+                                GlassChip(
+                                    text = task.label,
+                                    selected = false,
+                                    onClick = { if (aiReady && !isStreaming) vm.runDocTask(task) },
+                                    color = Glass.Emerald
+                                )
                             }
                         }
-                    } else {
-                        items(messages) { msg ->
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = if (msg.fromUser) Arrangement.End else Arrangement.Start
-                            ) {
-                                val shape = RoundedCornerShape(
-                                    topStart = 18.dp,
-                                    topEnd = 18.dp,
-                                    bottomStart = if (msg.fromUser) 18.dp else 4.dp,
-                                    bottomEnd = if (msg.fromUser) 4.dp else 18.dp
+                    }
+                }
+                if (messages.isEmpty()) {
+                    item(key = "welcomeCard") {
+                        GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(14.dp)) {
+                            if (src == null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        Modifier
+                                            .size(38.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Rounded.PictureAsPdf, null, tint = Glass.Cyan, modifier = Modifier.size(20.dp))
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Chat AI & Tanya PDF", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
+                                        Hint("Tanya langsung di bawah atau lampirkan PDF.")
+                                    }
+                                    GlassButton(
+                                        text = "Pilih PDF",
+                                        primary = false,
+                                        compact = true,
+                                        onClick = { picker.launch(arrayOf("application/pdf")) }
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    "Siap menganalisis \"${src.name}\"",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Glass.TextPrimary
                                 )
-                                Column(
-                                    Modifier
-                                        .widthIn(max = 315.dp)
-                                        .clip(shape)
-                                        .background(
-                                            if (msg.fromUser) Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.18f else 0.13f)
-                                            else Glass.CardFill
-                                        )
-                                        .border(
-                                            1.dp,
-                                            if (msg.fromUser) Glass.Cyan.copy(alpha = 0.42f) else Glass.Stroke,
-                                            shape
-                                        )
-                                        .padding(12.dp)
-                                ) {
-                                    if (!msg.fromUser && msg.isStreaming) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.8.dp, color = Glass.Cyan)
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(msg.streamPhase ?: "Streaming…", style = MaterialTheme.typography.labelSmall, color = Glass.Cyan)
-                                        }
-                                        if (msg.text.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(4.dp))
+                                Hint("Ketuk aksi cepat di atas atau tulis pertanyaan di bawah. Jawaban ditampilkan dengan format rapi.")
+                            }
+                        }
+                    }
+                } else {
+                    items(messages) { msg ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = if (msg.fromUser) Arrangement.End else Arrangement.Start
+                        ) {
+                            val shape = RoundedCornerShape(
+                                topStart = 18.dp,
+                                topEnd = 18.dp,
+                                bottomStart = if (msg.fromUser) 18.dp else 4.dp,
+                                bottomEnd = if (msg.fromUser) 4.dp else 18.dp
+                            )
+                            Column(
+                                Modifier
+                                    .widthIn(max = 315.dp)
+                                    .clip(shape)
+                                    .background(
+                                        if (msg.fromUser) Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.20f else 0.14f)
+                                        else Glass.CardFill
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (msg.fromUser) Glass.Cyan.copy(alpha = 0.45f) else Glass.Stroke,
+                                        shape
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                if (!msg.fromUser && msg.isStreaming) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.8.dp, color = Glass.Cyan)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(msg.streamPhase ?: "Streaming…", style = MaterialTheme.typography.labelSmall, color = Glass.Cyan)
                                     }
-                                    if (msg.text.isNotEmpty()) {
+                                    if (msg.text.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                                }
+                                if (msg.text.isNotEmpty()) {
+                                    if (msg.fromUser) {
                                         Text(msg.text, style = MaterialTheme.typography.bodyMedium, color = Glass.TextPrimary)
+                                    } else {
+                                        MarkdownText(
+                                            text = msg.text,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Glass.TextPrimary
+                                        )
                                     }
-                                    if (!msg.fromUser && !msg.isStreaming && msg.text.isNotBlank()) {
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                            GlassIconButton(
-                                                Icons.Rounded.ContentCopy,
-                                                "Copy reply",
-                                                { copyToClipboard(ctx, "Gemini Answer", msg.text) },
-                                                tint = Glass.Cyan
-                                            )
-                                        }
+                                }
+                                if (!msg.fromUser && !msg.isStreaming && msg.text.isNotBlank()) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                        GlassIconButton(
+                                            Icons.Rounded.ContentCopy,
+                                            "Salin jawaban",
+                                            { copyToClipboard(ctx, "AI Answer", msg.text) },
+                                            tint = Glass.Cyan
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                QuickPasteResetRow(
-                    hasText = question.isNotBlank(),
-                    onPaste = { pasted -> question = if (question.isBlank()) pasted else "$question $pasted" },
-                    onClear = { question = "" }
-                )
+            QuickPasteResetRow(
+                hasText = question.isNotBlank(),
+                onPaste = { pasted -> question = if (question.isBlank()) pasted else "$question $pasted" },
+                onClear = { question = "" }
+            )
 
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    GlassTextField(
-                        value = question,
-                        onValueChange = { question = it },
-                        label = "Ask about this PDF…",
-                        singleLine = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .bringIntoViewOnFocus(question.length)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (src == null) {
+                    GlassIconButton(
+                        icon = Icons.Rounded.PictureAsPdf,
+                        description = "Lampirkan PDF",
+                        onClick = { picker.launch(arrayOf("application/pdf")) },
+                        tint = Glass.Cyan
                     )
-                    Spacer(Modifier.width(8.dp))
-                    if (isStreaming) {
-                        Box(
-                            Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                                .background(Glass.Danger.copy(alpha = 0.16f))
-                                .border(1.dp, Glass.Danger.copy(alpha = 0.5f), CircleShape)
-                                .clickable { vm.stopStreaming() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Rounded.StopCircle, "Stop", tint = Glass.Danger)
-                        }
-                    } else {
-                        Box(
-                            Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                                .background(if (aiReady && question.isNotBlank()) Glass.Cyan else Glass.CardFill)
-                                .border(1.dp, Glass.Stroke, CircleShape)
-                                .clickable(enabled = aiReady && question.isNotBlank()) {
-                                    val q = question
-                                    question = ""
-                                    vm.ask(q)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Rounded.Send,
-                                "Send",
-                                tint = if (aiReady && question.isNotBlank()) Glass.OnAccent else Glass.TextDim
-                            )
-                        }
+                    if (messages.isNotEmpty()) {
+                        GlassIconButton(
+                            icon = Icons.Rounded.DeleteSweep,
+                            description = "Bersihkan chat",
+                            onClick = vm::clearChat
+                        )
+                    }
+                    Spacer(Modifier.width(4.dp))
+                }
+                GlassTextField(
+                    value = question,
+                    onValueChange = { question = it },
+                    label = if (src != null) "Tanya tentang PDF ini…" else "Tanya apa saja atau tentang PDF…",
+                    singleLine = true,
+                    modifier = Modifier
+                        .weight(1f)
+                        .bringIntoViewOnFocus(question.length)
+                )
+                Spacer(Modifier.width(8.dp))
+                if (isStreaming) {
+                    Box(
+                        Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(Glass.Danger.copy(alpha = 0.16f))
+                            .border(1.dp, Glass.Danger.copy(alpha = 0.5f), CircleShape)
+                            .clickable { vm.stopStreaming() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Rounded.StopCircle, "Stop", tint = Glass.Danger)
+                    }
+                } else {
+                    Box(
+                        Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(if (aiReady && question.isNotBlank()) Glass.Cyan else Glass.CardFill)
+                            .border(1.dp, Glass.Stroke, CircleShape)
+                            .clickable(enabled = aiReady && question.isNotBlank()) {
+                                val q = question
+                                question = ""
+                                vm.ask(q)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.Send,
+                            "Kirim",
+                            tint = if (aiReady && question.isNotBlank()) Glass.OnAccent else Glass.TextDim
+                        )
                     }
                 }
             }

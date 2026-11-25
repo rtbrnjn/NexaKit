@@ -212,8 +212,29 @@ class PdfAiViewModel @Inject constructor(
         }
     }
 
-    fun runDocTask(task: DocTask) = send(task.prompt, task.label)
+    fun runDocTask(task: DocTask) {
+        if (_source.value == null) {
+            showError("Pilih file PDF terlebih dahulu untuk aksi dokumen.")
+            return
+        }
+        send(task.prompt, task.label)
+    }
+
     fun ask(question: String) { if (question.isNotBlank()) send(question.trim(), null) }
+
+    fun clearDocument() {
+        streamJob?.cancel()
+        _isStreaming.value = false
+        _activeEngine.value = null
+        _source.value = null
+        docText = null
+        pageImages = emptyList()
+        _isScannedPdf.value = false
+        _visionMode.value = false
+        _extractInfo.value = ""
+        history.clear()
+        _messages.value = emptyList()
+    }
 
     fun stopStreaming() {
         streamJob?.cancel()
@@ -235,13 +256,13 @@ class PdfAiViewModel @Inject constructor(
     }
 
     private fun send(prompt: String, label: String?) {
-        val src = _source.value ?: run { showError("Open a PDF first."); return }
-        if (docText.isNullOrBlank() && pageImages.isEmpty()) {
+        val src = _source.value
+        if (src != null && docText.isNullOrBlank() && pageImages.isEmpty()) {
             showError("Tidak ada teks yang berhasil diekstrak. Aktifkan Vision Mode untuk membaca gambar.")
             return
         }
         if (!connectivity.online.value) {
-            showError("Offline Mode active – connect to the internet to query AI Studio.")
+            showError("Mode Offline aktif. Sambungkan internet untuk menggunakan AI Studio.")
             return
         }
         streamJob?.cancel()
@@ -295,8 +316,12 @@ class PdfAiViewModel @Inject constructor(
                         aiHistory.insert(
                             AiHistoryEntity(
                                 kind = AiHistoryKind.PDF_SUMMARY,
-                                title = src.name,
-                                subtitle = "$display • ${outcome.modelId} • Pages ${_pageRange.value}",
+                                title = src?.name ?: "Chat AI Studio",
+                                subtitle = if (src != null) {
+                                    "$display • ${outcome.modelId} • Pages ${_pageRange.value}"
+                                } else {
+                                    "$display • ${outcome.modelId}"
+                                },
                                 content = finalReply,
                                 model = outcome.modelId
                             )

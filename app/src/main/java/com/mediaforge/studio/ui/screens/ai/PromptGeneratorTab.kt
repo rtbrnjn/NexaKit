@@ -1,7 +1,5 @@
 package com.mediaforge.studio.ui.screens.ai
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,9 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoFixHigh
-import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.mediaforge.studio.ai.ImageAspectRatio
 import com.mediaforge.studio.ai.LightingPreset
 import com.mediaforge.studio.ai.PromptAspectRatio
 import com.mediaforge.studio.ai.PromptTarget
@@ -38,6 +33,7 @@ import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassIconButton
 import com.mediaforge.studio.ui.components.GlassTextField
 import com.mediaforge.studio.ui.components.Hint
+import com.mediaforge.studio.ui.components.MarkdownText
 import com.mediaforge.studio.ui.components.SectionLabel
 import com.mediaforge.studio.ui.components.ToolPage
 import com.mediaforge.studio.ui.components.bringIntoViewOnFocus
@@ -50,8 +46,7 @@ internal fun PromptGeneratorTab(
     vm: PromptGeneratorViewModel,
     aiReady: Boolean,
     topPadding: Dp,
-    hazeState: HazeState?,
-    onSendToImageCreation: (prompt: String, negativePrompt: String, ratio: ImageAspectRatio) -> Unit
+    hazeState: HazeState?
 ) {
     val ctx = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -78,7 +73,7 @@ internal fun PromptGeneratorTab(
         imeAware = true
     ) {
         GlassCard(Modifier.fillMaxWidth()) {
-            SectionLabel("Prompt Generator (Prompt Maker)")
+            SectionLabel("Prompt Generator")
             Spacer(Modifier.height(4.dp))
             Hint("Ubah ide singkat menjadi prompt Bahasa Inggris detail + Negative Prompt untuk Midjourney, Flux, Imagen, atau AI Video.")
             Spacer(Modifier.height(12.dp))
@@ -182,7 +177,7 @@ internal fun PromptGeneratorTab(
                 }
                 if (streamingText.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
-                    Text(streamingText, style = MaterialTheme.typography.bodySmall, color = Glass.TextPrimary)
+                    MarkdownText(streamingText, style = MaterialTheme.typography.bodySmall, color = Glass.TextPrimary)
                 }
             }
         }
@@ -231,36 +226,20 @@ internal fun PromptGeneratorTab(
                     GlassCard(Modifier.fillMaxWidth()) {
                         SectionLabel("Tips Cepat")
                         Spacer(Modifier.height(4.dp))
-                        Hint(generated.tips)
+                        MarkdownText(generated.tips, style = MaterialTheme.typography.bodySmall, color = Glass.TextSecondary)
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GlassButton(
-                        text = "Salin Prompt Lengkap",
-                        icon = Icons.Rounded.ContentCopy,
-                        primary = false,
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            copyToClipboard(ctx, "Full Prompt", generated.asCopyableText())
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    GlassButton(
-                        text = "Kirim ke Image Creation",
-                        icon = Icons.Rounded.Brush,
-                        primary = true,
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSendToImageCreation(
-                                generated.mainPrompt,
-                                generated.negativePrompt,
-                                aspectRatio.imageRatio
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                GlassButton(
+                    text = "Salin Prompt Lengkap",
+                    icon = Icons.Rounded.ContentCopy,
+                    primary = true,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        copyToClipboard(ctx, "Full Prompt", generated.asCopyableText())
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

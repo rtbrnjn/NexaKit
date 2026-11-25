@@ -1,15 +1,12 @@
 package com.mediaforge.studio.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,12 +18,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Bookmarks
-import androidx.compose.material.icons.rounded.Brush
-import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material3.Icon
@@ -43,15 +38,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mediaforge.studio.ai.AiEngine
@@ -60,34 +49,30 @@ import com.mediaforge.studio.ai.AiRouting
 import com.mediaforge.studio.ui.components.GlassButton
 import com.mediaforge.studio.ui.components.GlassCard
 import com.mediaforge.studio.ui.components.GlassChip
+import com.mediaforge.studio.ui.components.GlassIconButton
+import com.mediaforge.studio.ui.components.GlassSegmentedBar
 import com.mediaforge.studio.ui.components.LiquidGlassTopHeader
 import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.components.OfflineBadge
 import com.mediaforge.studio.ui.components.OnlineBadge
-import com.mediaforge.studio.ui.components.diagonalGlassBorder
 import com.mediaforge.studio.ui.components.horizontalCarouselScroll
-import com.mediaforge.studio.ui.components.liquidGlassChrome
 import com.mediaforge.studio.ui.screens.ai.AiVaultTab
 import com.mediaforge.studio.ui.screens.ai.CopywriterTab
-import com.mediaforge.studio.ui.screens.ai.ImageCreationTab
 import com.mediaforge.studio.ui.screens.ai.PdfAssistantTab
 import com.mediaforge.studio.ui.screens.ai.PromptGeneratorTab
 import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.AiVaultViewModel
 import com.mediaforge.studio.vm.CopywriterViewModel
-import com.mediaforge.studio.vm.ImageCreationViewModel
 import com.mediaforge.studio.vm.PdfAiViewModel
 import com.mediaforge.studio.vm.PromptGeneratorViewModel
 import com.mediaforge.studio.vm.SettingsViewModel
-import dev.chrisbanes.haze.HazeState
 
 enum class AiTool(val label: String, val icon: ImageVector) {
-    PDF_CHAT("Chat PDF", Icons.Rounded.Description),
-    PROMPT_MAKER("Prompt", Icons.Rounded.AutoFixHigh),
-    IMAGE_CREATE("Image AI", Icons.Rounded.Brush),
-    COPYWRITER("Copywriter", Icons.Rounded.Campaign),
-    VAULT("AI Vault", Icons.Rounded.Bookmarks)
+    PDF_CHAT("Chat & Tanya PDF", Icons.Rounded.Description),
+    PROMPT_MAKER("Prompt Generator", Icons.Rounded.AutoFixHigh)
 }
+
+private enum class AiOverlayView { NONE, VAULT, COPYWRITER }
 
 @Composable
 fun GeminiAiScreen(
@@ -96,10 +81,12 @@ fun GeminiAiScreen(
     copyVm: CopywriterViewModel = viewModel(),
     pdfAiVm: PdfAiViewModel = viewModel(),
     promptVm: PromptGeneratorViewModel = viewModel(),
-    imageVm: ImageCreationViewModel = viewModel(),
     vaultVm: AiVaultViewModel = viewModel(),
     requestedTool: AiTool? = null,
-    onToolHandled: () -> Unit = {}
+    onToolHandled: () -> Unit = {},
+    requestedShareCopywriter: Boolean = false,
+    onShareCopywriterHandled: () -> Unit = {},
+    isTabActive: Boolean = true
 ) {
     val online by settingsVm.online.collectAsState()
     val geminiKey by settingsVm.savedKey.collectAsState()
@@ -109,69 +96,70 @@ fun GeminiAiScreen(
     val activePdfEngine by pdfAiVm.activeEngine.collectAsState()
     val activeCopyEngine by copyVm.activeEngine.collectAsState()
     val activePromptEngine by promptVm.activeEngine.collectAsState()
+
     var active by rememberSaveable { mutableStateOf(AiTool.PDF_CHAT) }
+    var overlayView by rememberSaveable { mutableStateOf(AiOverlayView.NONE) }
 
     val chromeHaze = LocalHazeState.current
     var headerHeightPx by remember { mutableIntStateOf(0) }
-    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 10.dp
+    val topPadding = with(LocalDensity.current) { headerHeightPx.toDp() } + 8.dp
 
     LaunchedEffect(requestedTool) {
         if (requestedTool != null) {
+            overlayView = AiOverlayView.NONE
             active = requestedTool
             onToolHandled()
         }
     }
 
+    LaunchedEffect(requestedShareCopywriter) {
+        if (requestedShareCopywriter) {
+            overlayView = AiOverlayView.COPYWRITER
+            onShareCopywriterHandled()
+        }
+    }
+
+    BackHandler(enabled = isTabActive && overlayView != AiOverlayView.NONE) {
+        overlayView = AiOverlayView.NONE
+    }
+
     val hasAnyKey = groqKey.isNotBlank() || geminiKey.isNotBlank()
     val aiReady = online && hasAnyKey
     val primaryEngine = AiRouting.resolvePrimaryEngine(aiPref, groqKey.isNotBlank(), geminiKey.isNotBlank())
-    val displayedEngine = when (active) {
-        AiTool.PDF_CHAT -> activePdfEngine ?: primaryEngine
-        AiTool.PROMPT_MAKER -> activePromptEngine ?: primaryEngine
-        AiTool.IMAGE_CREATE -> if (geminiKey.isNotBlank()) AiEngine.GEMINI else primaryEngine
-        AiTool.COPYWRITER -> activeCopyEngine ?: primaryEngine
-        AiTool.VAULT -> primaryEngine
+    val displayedEngine = when {
+        overlayView == AiOverlayView.COPYWRITER -> activeCopyEngine ?: primaryEngine
+        overlayView == AiOverlayView.VAULT -> primaryEngine
+        active == AiTool.PDF_CHAT -> activePdfEngine ?: primaryEngine
+        else -> activePromptEngine ?: primaryEngine
     }
     val engineBadge = if (!online || !hasAnyKey) {
         "Offline Mode"
-    } else if (active == AiTool.IMAGE_CREATE) {
-        if (geminiKey.isNotBlank()) "Gemini · Image AI" else "Need Gemini Key"
     } else {
-        AiRouting.badgeLabel(displayedEngine, model, isVision = active == AiTool.COPYWRITER)
+        AiRouting.badgeLabel(displayedEngine, model, isVision = overlayView == AiOverlayView.COPYWRITER)
     }
+
+    val contentKey: Any = if (overlayView != AiOverlayView.NONE) overlayView else active
 
     Box(Modifier.fillMaxSize()) {
         AnimatedContent(
-            targetState = active,
+            targetState = contentKey,
             transitionSpec = {
                 (fadeIn(tween(200)) + scaleIn(initialScale = 0.985f, animationSpec = tween(200)))
                     .togetherWith(fadeOut(tween(160)))
             },
             label = "aiSubTab",
             modifier = Modifier.fillMaxSize()
-        ) { tool ->
-            when (tool) {
-                AiTool.PDF_CHAT -> PdfAssistantTab(pdfAiVm, aiReady, topPadding, chromeHaze)
+        ) { target ->
+            when (target) {
+                AiOverlayView.VAULT -> AiVaultTab(vaultVm, topPadding, chromeHaze)
+                AiOverlayView.COPYWRITER -> CopywriterTab(copyVm, aiReady, topPadding, chromeHaze)
                 AiTool.PROMPT_MAKER -> PromptGeneratorTab(
                     vm = promptVm,
                     aiReady = aiReady,
                     topPadding = topPadding,
-                    hazeState = chromeHaze,
-                    onSendToImageCreation = { mainPrompt, negPrompt, ratio ->
-                        imageVm.applyFromPromptGenerator(mainPrompt, negPrompt, ratio)
-                        active = AiTool.IMAGE_CREATE
-                    }
-                )
-                AiTool.IMAGE_CREATE -> ImageCreationTab(
-                    vm = imageVm,
-                    online = online,
-                    hasGeminiKey = geminiKey.isNotBlank(),
-                    onOpenSettings = onOpenVault,
-                    topPadding = topPadding,
                     hazeState = chromeHaze
                 )
-                AiTool.COPYWRITER -> CopywriterTab(copyVm, aiReady, topPadding, chromeHaze)
-                AiTool.VAULT -> AiVaultTab(vaultVm, topPadding, chromeHaze)
+                else -> PdfAssistantTab(pdfAiVm, aiReady, topPadding, chromeHaze)
             }
         }
 
@@ -181,43 +169,64 @@ fun GeminiAiScreen(
                 .fillMaxWidth()
                 .onSizeChanged { headerHeightPx = it.height }
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(top = 10.dp, bottom = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             LiquidGlassTopHeader(
-                title = "DocPix · AI Studio",
-                subtitle = if (!aiReady) "Add Groq or Gemini API key in Settings"
-                else if (active == AiTool.IMAGE_CREATE) "Gemini / Imagen Image Generation"
+                title = when (overlayView) {
+                    AiOverlayView.VAULT -> "DocPix · AI Vault"
+                    AiOverlayView.COPYWRITER -> "DocPix · Copywriter"
+                    AiOverlayView.NONE -> "DocPix · AI Studio"
+                },
+                subtitle = if (!aiReady) "Tambahkan Groq atau Gemini API Key di Settings"
                 else if (groqKey.isNotBlank() && geminiKey.isNotBlank()) "$engineBadge • Auto-Fallback"
                 else "$engineBadge • SSE Streaming",
                 hazeState = chromeHaze,
                 trailing = {
-                    if (aiReady) {
-                        OnlineBadge(
-                            label = engineBadge,
-                            accent = if (displayedEngine == AiEngine.GROQ) Glass.Emerald else Glass.Cyan
-                        )
-                    } else {
-                        OfflineBadge(compact = true)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (overlayView != AiOverlayView.NONE) {
+                            GlassIconButton(
+                                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                                description = "Kembali ke AI Studio",
+                                onClick = { overlayView = AiOverlayView.NONE },
+                                tint = Glass.Cyan
+                            )
+                        } else {
+                            GlassIconButton(
+                                icon = Icons.Rounded.Bookmarks,
+                                description = "AI Vault",
+                                onClick = { overlayView = AiOverlayView.VAULT },
+                                tint = Glass.TextSecondary
+                            )
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        if (aiReady) {
+                            OnlineBadge(
+                                label = engineBadge,
+                                accent = if (displayedEngine == AiEngine.GROQ) Glass.Emerald else Glass.Cyan
+                            )
+                        } else {
+                            OfflineBadge(compact = true)
+                        }
                     }
                 }
             )
 
             if (!online) {
-                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
+                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
                     Text(
-                        "Offline Mode — All Media & PDF Tools Ready. Connect to the internet for live Groq & Gemini streaming.",
+                        "Mode Offline aktif. Sambungkan internet untuk AI Studio.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Glass.TextPrimary
                     )
                 }
             } else if (!hasAnyKey) {
-                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(12.dp)) {
+                GlassCard(Modifier.fillMaxWidth(), accent = Glass.Amber, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Key, null, tint = Glass.Amber, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Key, null, tint = Glass.Amber, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Add a Groq (gsk_...) or Gemini (AIza...) key in Settings to enable AI Studio.",
+                            "Tambahkan Groq atau Gemini API Key di Settings.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Glass.TextPrimary,
                             modifier = Modifier.weight(1f)
@@ -226,7 +235,7 @@ fun GeminiAiScreen(
                         GlassButton("Settings", primary = false, compact = true, onClick = onOpenVault)
                     }
                 }
-            } else if (active != AiTool.IMAGE_CREATE && active != AiTool.VAULT) {
+            } else if (overlayView != AiOverlayView.VAULT) {
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -251,89 +260,14 @@ fun GeminiAiScreen(
                 }
             }
 
-            AiStudioPillSelector(
-                items = AiTool.entries,
-                selected = active,
-                onSelect = { active = it },
-                hazeState = chromeHaze
-            )
-        }
-    }
-}
-
-@Composable
-private fun AiStudioPillSelector(
-    items: List<AiTool>,
-    selected: AiTool,
-    onSelect: (AiTool) -> Unit,
-    hazeState: HazeState?
-) {
-    val isDark = Glass.IsDark
-    val haptics = LocalHapticFeedback.current
-    val outerShape = RoundedCornerShape(26.dp)
-    val pillShape = RoundedCornerShape(20.dp)
-    val activeFill = remember(isDark) {
-        if (isDark) {
-            Brush.verticalGradient(
-                listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.07f))
-            )
-        } else {
-            Brush.verticalGradient(
-                listOf(Color.White.copy(alpha = 0.92f), Color.White.copy(alpha = 0.65f))
-            )
-        }
-    }
-    val activeBorder = diagonalGlassBorder(isDark = isDark, strong = true)
-
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .liquidGlassChrome(
-                shape = outerShape,
-                hazeState = hazeState,
-                blurRadius = 14.dp,
-                shadowElevation = 6.dp
-            )
-            .horizontalCarouselScroll()
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        items.forEach { item ->
-            val isSelected = item == selected
-            val interaction = remember { MutableInteractionSource() }
-            Row(
-                Modifier
-                    .clip(pillShape)
-                    .then(
-                        if (isSelected) {
-                            Modifier
-                                .background(activeFill)
-                                .border(1.dp, activeBorder, pillShape)
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .clickable(interactionSource = interaction, indication = null) {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelect(item)
-                    }
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = null,
-                    tint = if (isSelected) (if (isDark) Glass.TextPrimary else Glass.Cyan) else Glass.TextSecondary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = item.label,
-                    color = if (isSelected) Glass.TextPrimary else Glass.TextSecondary,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                    maxLines = 1
+            if (overlayView == AiOverlayView.NONE) {
+                GlassSegmentedBar(
+                    items = AiTool.entries,
+                    selected = active,
+                    label = { it.label },
+                    icon = { it.icon },
+                    onSelect = { active = it },
+                    hazeState = chromeHaze
                 )
             }
         }
