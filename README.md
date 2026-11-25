@@ -6,19 +6,26 @@ Designed around a clean, understated **Monochrome Liquid Glass** aesthetic (`#0B
 
 ---
 
-## Download & Install APK (`v1.4.7`)
+## Download & Install APK (`v1.4.8`)
 
-- **Direct Download (`v1.4.7`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.7/DocPix.apk)
+- **Direct Download (`v1.4.8`):** [DocPix.apk](https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.8/DocPix.apk)
 - **All Releases:** [GitHub Releases](https://github.com/rtbrnjn/NexaKit/releases)
 
 ### Panduan Instalasi Cepat
-1. Unduh `DocPix.apk` dari halaman Releases di atas.
+1. Unduh `DocPix.apk` dari halaman Releases di atas (atau cukup tekan **"Update Sekarang"** langsung dari dalam aplikasi DocPix!).
 2. Buka file APK di perangkat Android Anda (Android 8.0 / API 26+). Jika diminta, izinkan *Install from unknown sources*.
-3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.6** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
+3. Pengguna **NexaKit v1.2.0 – v1.4.1** dan **DocPix v1.4.2 – v1.4.7** yang memakai rilis signed dari GitHub dapat langsung menimpa instalasi lama tanpa menghapus data atau API Key tersimpan (`applicationId` dan keystore release tetap sama).
 
 ---
 
-## What's New in v1.4.7 ("True Clear Liquid Glass, Liquid Morphing Navbar, IME Auto-Scroll, Prompt Generator & AI Image Creation")
+## What's New in v1.4.8 ("In-App APK Auto-Updater & Automatic Package Installer")
+- **Unduh Pembaruan Langsung di Dalam Aplikasi (Tanpa Browser):** Menekan **"Update Sekarang"** pada dialog pembaruan *Liquid Glass* kini mengunduh `DocPix.apk` langsung secara internal (`Dispatchers.IO`) dengan penanganan *redirect* GitHub Releases otomatis dan validasi integritas APK menuju `cacheDir/updates/DocPix-update.apk`.
+- **Liquid Glass Progress Bar Real-Time (0% – 100%):** Dialog pembaruan menampilkan progress bar halus, persentase unduhan real-time, ukuran byte terunduh/total, serta tombol batal unduhan.
+- **Pemicu Layar Pemasangan Android Otomatis:**
+  - Izin `REQUEST_INSTALL_PACKAGES` dan path `FileProvider` khusus `updates/` sudah terdaftar.
+  - Begitu unduhan mencapai `100%`, aplikasi memeriksa `canRequestPackageInstalls()`. Jika belum aktif, otomatis mengarahkan ke pengaturan *Install unknown apps* khusus DocPix dan langsung melanjutkan instalasi saat kembali ke aplikasi; jika sudah aktif, layar pemasangan paket sistem langsung terbuka melalui `FileProvider`.
+
+## Highlights in v1.4.7 ("True Clear Liquid Glass, Liquid Morphing Navbar, IME Auto-Scroll, Prompt Generator & AI Image Creation")
 - **True Clear Translucent Liquid Glass & Ambient Light Orbs Backdrop:**
   - Lapisan kaca bening tembus pandang (*Dark Mode:* gradasi tipis `0.05f → 0.015f`, blur ringan `14.dp`, *Specular Rim Highlight* `0.35f → 0.06f`; *Light Mode:* `0.55f → 0.30f`, border putih terang `0.85f → 0.20f`) pada kartu, dialog, dan floating dock.
   - Kanvas latar `LiquidGlassBackdrop` berbasis `drawWithCache` statis (60/120fps) berisi *Ambient Soft Light Orbs* (Dark `#090C10` + Cool Blue `#1D4ED8` & Cyan `#0E7490`; Light `#EDF2F7` + pastel Sky Blue `#93C5FD` & Mint `#A7F3D0`) serta *micro-dot grid* `22.dp` (alpha `0.05f`).

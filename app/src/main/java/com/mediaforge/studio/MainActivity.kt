@@ -253,6 +253,7 @@ private fun MediaForgeRoot(
     val completionHapticTick by coordinator.completionHapticTick.collectAsState()
     val showUpdateDialog by settingsVm.showUpdateDialog.collectAsState()
     val availableUpdate by settingsVm.availableUpdate.collectAsState()
+    val updateDownloadState by settingsVm.updateDownloadState.collectAsState()
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         scope.launch { settings.setPermissionAsked(true) }
@@ -478,6 +479,10 @@ private fun MediaForgeRoot(
             if (showUpdateDialog) {
                 AppUpdateDialog(
                     update = availableUpdate,
+                    downloadState = updateDownloadState,
+                    onStartDownload = settingsVm::startUpdateDownload,
+                    onCancelDownload = settingsVm::cancelUpdateDownload,
+                    onInstallPermissionResult = settingsVm::onInstallPermissionReturned,
                     onDismiss = settingsVm::dismissUpdateDialog
                 )
             }

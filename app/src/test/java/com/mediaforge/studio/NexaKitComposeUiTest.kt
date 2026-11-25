@@ -119,7 +119,7 @@ class NexaKitMainNavigationUiTest {
         // 4. Navigate to Settings, verify About DocPix + Adaptive Icon + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("DocPix v1.4.7 (Build 14)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.8 (Build 15)").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("DocPix app icon").assertIsDisplayed()
         composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
@@ -485,5 +485,89 @@ class LiquidGlassComponentsUiTest {
         org.junit.Assert.assertEquals("image/jpeg", fromImagen?.mimeType)
         org.junit.Assert.assertEquals("jpg", fromImagen?.fileExtension)
         org.junit.Assert.assertEquals("fake-png-bytes", fromImagen?.bytes?.toString(Charsets.UTF_8))
+    }
+
+    @Test
+    fun appUpdateDialog_andFileProviderInstallIntents_workAcrossStates() {
+        val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val apkFile = com.mediaforge.studio.data.UpdateChecker.resolveApkDownloadFile(ctx)
+        apkFile.writeBytes(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 1, 2, 3, 4))
+
+        try {
+            // Verify R.xml.file_paths declares the `updates` cache-path for FileProvider
+            val parser = ctx.resources.getXml(R.xml.file_paths)
+            var foundUpdatesRoot = false
+            var event = parser.eventType
+            while (event != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (event == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "cache-path") {
+                    if (parser.getAttributeValue(null, "name") == "updates" &&
+                        parser.getAttributeValue(null, "path") == "updates/"
+                    ) {
+                        foundUpdatesRoot = true
+                    }
+                }
+                event = parser.next()
+            }
+            org.junit.Assert.assertTrue("file_paths.xml must declare cache-path updates/", foundUpdatesRoot)
+
+            val expectedUri = android.net.Uri.parse("content://${ctx.packageName}.fileprovider/updates/${apkFile.name}")
+            val installIntent = com.mediaforge.studio.core.Actions.buildInstallApkIntentForUri(expectedUri, apkFile.name)
+            org.junit.Assert.assertEquals(android.content.Intent.ACTION_VIEW, installIntent.action)
+            org.junit.Assert.assertEquals("application/vnd.android.package-archive", installIntent.type)
+            org.junit.Assert.assertEquals(expectedUri, installIntent.data)
+            org.junit.Assert.assertTrue((installIntent.flags and android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+            org.junit.Assert.assertTrue((installIntent.flags and android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0)
+
+            val permIntent = com.mediaforge.studio.core.Actions.buildInstallPermissionIntent(ctx)
+            org.junit.Assert.assertEquals(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, permIntent.action)
+            org.junit.Assert.assertEquals("package:${ctx.packageName}", permIntent.data.toString())
+
+            val sampleUpdate = com.mediaforge.studio.data.AppUpdateInfo(
+                tagName = "v1.4.9",
+                versionName = "1.4.9",
+                title = "DocPix v1.4.9",
+                releaseNotes = "- In-app APK updater",
+                htmlUrl = "https://github.com/rtbrnjn/NexaKit/releases/tag/v1.4.9",
+                apkDownloadUrl = "https://github.com/rtbrnjn/NexaKit/releases/download/v1.4.9/DocPix.apk"
+            )
+            var state by mutableStateOf<com.mediaforge.studio.data.UpdateDownloadState>(
+                com.mediaforge.studio.data.UpdateDownloadState.Idle
+            )
+            var downloadTriggered = false
+
+            composeRule.setContent {
+                MediaForgeTheme(themeMode = ThemeMode.DARK) {
+                    com.mediaforge.studio.ui.screens.AppUpdateDialog(
+                        update = sampleUpdate,
+                        downloadState = state,
+                        onStartDownload = {
+                            downloadTriggered = true
+                            state = com.mediaforge.studio.data.UpdateDownloadState.Downloading(
+                                downloadedBytes = 32L * 1024 * 1024,
+                                totalBytes = 50L * 1024 * 1024,
+                                progressPercent = 64
+                            )
+                        },
+                        onCancelDownload = { state = com.mediaforge.studio.data.UpdateDownloadState.Idle },
+                        onDismiss = {},
+                        autoTriggerInstaller = false
+                    )
+                }
+            }
+
+            composeRule.onNodeWithText("Pembaruan Tersedia").assertIsDisplayed()
+            composeRule.onNodeWithText("Update Sekarang").performClick()
+            org.junit.Assert.assertTrue(downloadTriggered)
+
+            composeRule.onNodeWithText("Mengunduh DocPix.apk…").assertIsDisplayed()
+            composeRule.onNodeWithText("64%").assertIsDisplayed()
+            composeRule.onNodeWithText("Batalkan Unduhan").assertIsDisplayed()
+
+            state = com.mediaforge.studio.data.UpdateDownloadState.ReadyToInstall(apkFile)
+            composeRule.onNodeWithText("Unduhan Selesai (100%)").assertIsDisplayed()
+            composeRule.onNodeWithText("Pasang Sekarang").assertIsDisplayed()
+        } finally {
+            apkFile.delete()
+        }
     }
 }

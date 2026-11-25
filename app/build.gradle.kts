@@ -20,8 +20,8 @@ android {
         applicationId = "com.mediaforge.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.4.7"
+        versionCode = 15
+        versionName = "1.4.8"
         testInstrumentationRunner = "com.mediaforge.studio.NexaTestRunner"
     }
 

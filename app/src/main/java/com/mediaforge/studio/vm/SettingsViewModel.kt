@@ -9,6 +9,7 @@ import com.mediaforge.studio.ai.AiPreference
 import com.mediaforge.studio.ai.GeminiClient
 import com.mediaforge.studio.ai.GeminiException
 import com.mediaforge.studio.ai.GroqClient
+import com.mediaforge.studio.core.Actions
 import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.data.AppUpdateInfo
@@ -20,11 +21,14 @@ import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.data.UpdateCheckResult
 import com.mediaforge.studio.data.UpdateChecker
+import com.mediaforge.studio.data.UpdateDownloadState
 import com.mediaforge.studio.data.db.AiHistoryDao
 import com.mediaforge.studio.data.db.AiHistoryEntity
 import com.mediaforge.studio.pdf.PdfPageMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -112,6 +116,11 @@ class SettingsViewModel @Inject constructor(
 
     private val _updateStatus = MutableStateFlow<String?>(null)
     val updateStatus: StateFlow<String?> = _updateStatus
+
+    private val _updateDownloadState = MutableStateFlow<UpdateDownloadState>(UpdateDownloadState.Idle)
+    val updateDownloadState: StateFlow<UpdateDownloadState> = _updateDownloadState
+
+    private var updateDownloadJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -275,7 +284,72 @@ class SettingsViewModel @Inject constructor(
         if (_availableUpdate.value != null) _showUpdateDialog.value = true
     }
 
+    fun startUpdateDownload() {
+        val update = _availableUpdate.value ?: return
+        val apkUrl = update.apkDownloadUrl?.trim().orEmpty()
+        if (apkUrl.isEmpty()) {
+            _updateDownloadState.value = UpdateDownloadState.Failed(
+                "Tautan aset DocPix.apk belum tersedia pada rilis ${update.tagName}."
+            )
+            return
+        }
+        if (_updateDownloadState.value is UpdateDownloadState.Downloading) return
+
+        val appCtx = getApplication<Application>()
+        val targetFile = UpdateChecker.resolveApkDownloadFile(appCtx)
+        updateDownloadJob?.cancel()
+        _updateDownloadState.value = UpdateDownloadState.Downloading(0L, -1L, 0)
+        _updateStatus.value = "Mengunduh ${update.tagName}…"
+
+        updateDownloadJob = viewModelScope.launch {
+            try {
+                val downloadedApk = updateChecker.downloadApk(apkUrl, targetFile) { downloaded, total, pct ->
+                    _updateDownloadState.value = UpdateDownloadState.Downloading(downloaded, total, pct)
+                }
+                if (Actions.canInstallPackages(appCtx)) {
+                    _updateDownloadState.value = UpdateDownloadState.ReadyToInstall(downloadedApk)
+                    _updateStatus.value = "Unduhan selesai (100%). Membuka pemasang paket…"
+                } else {
+                    _updateDownloadState.value = UpdateDownloadState.NeedsInstallPermission(downloadedApk)
+                    _updateStatus.value = "Unduhan selesai. Izinkan pemasangan aplikasi dari sumber ini."
+                }
+            } catch (_: CancellationException) {
+                _updateDownloadState.value = UpdateDownloadState.Idle
+                _updateStatus.value = "Unduhan pembaruan dibatalkan."
+            } catch (e: Exception) {
+                val msg = e.message ?: "Gagal mengunduh pembaruan."
+                _updateDownloadState.value = UpdateDownloadState.Failed(msg)
+                _updateStatus.value = "Unduhan gagal: $msg"
+            }
+        }
+    }
+
+    fun cancelUpdateDownload() {
+        updateDownloadJob?.cancel()
+        updateDownloadJob = null
+        _updateDownloadState.value = UpdateDownloadState.Idle
+    }
+
+    fun onInstallPermissionReturned(granted: Boolean) {
+        val current = _updateDownloadState.value
+        val apkFile = when (current) {
+            is UpdateDownloadState.NeedsInstallPermission -> current.apkFile
+            is UpdateDownloadState.ReadyToInstall -> current.apkFile
+            else -> return
+        }
+        if (granted) {
+            _updateDownloadState.value = UpdateDownloadState.ReadyToInstall(apkFile)
+            _updateStatus.value = "Izin aktif. Membuka layar pemasangan DocPix…"
+        } else {
+            _updateDownloadState.value = UpdateDownloadState.NeedsInstallPermission(apkFile)
+            _updateStatus.value = "Izin pemasangan belum diaktifkan."
+        }
+    }
+
     fun dismissUpdateDialog() {
+        if (_updateDownloadState.value is UpdateDownloadState.Downloading) {
+            cancelUpdateDownload()
+        }
         _showUpdateDialog.value = false
     }
 }

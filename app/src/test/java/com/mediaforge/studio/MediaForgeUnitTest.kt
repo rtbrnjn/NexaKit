@@ -411,4 +411,84 @@ class MediaForgeUnitTest {
         assertTrue(parsed.tips.contains("low-angle"))
         assertTrue(parsed.asCopyableText().contains("Negative Prompt:"))
     }
+
+    @Test
+    fun updateDownloader_followsHttpRedirectsStreamsProgressAndValidatesApk() {
+        assertEquals(0, UpdateChecker.computeProgressPercent(0L, 1000L))
+        assertEquals(50, UpdateChecker.computeProgressPercent(500L, 1000L))
+        assertEquals(100, UpdateChecker.computeProgressPercent(1000L, 1000L))
+        assertEquals(null, UpdateChecker.computeProgressPercent(500L, -1L))
+
+        val payload = ByteArray(64 * 1024) { idx -> (idx % 251).toByte() }.apply {
+            // Valid ZIP/APK local file header magic: PK\x03\x04
+            this[0] = 0x50
+            this[1] = 0x4B
+            this[2] = 0x03
+            this[3] = 0x04
+        }
+
+        val server = java.net.ServerSocket(0)
+        val port = server.localPort
+        val serverThread = Thread {
+            repeat(3) {
+                runCatching {
+                    server.accept().use { sock ->
+                        val reader = sock.getInputStream().bufferedReader(Charsets.US_ASCII)
+                        val requestLine = reader.readLine().orEmpty()
+                        while (true) {
+                            val h = reader.readLine()
+                            if (h.isNullOrEmpty()) break
+                        }
+                        val out = sock.getOutputStream()
+                        when {
+                            requestLine.contains("/release/DocPix.apk") -> {
+                                val resp = "HTTP/1.1 302 Found\r\nLocation: /cdn/DocPix-real.apk\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                                out.write(resp.toByteArray(Charsets.US_ASCII))
+                            }
+                            requestLine.contains("/cdn/DocPix-real.apk") -> {
+                                val hdr = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${payload.size}\r\nConnection: close\r\n\r\n"
+                                out.write(hdr.toByteArray(Charsets.US_ASCII))
+                                out.write(payload)
+                            }
+                            else -> {
+                                val bad = "<html>Not an APK</html>".toByteArray(Charsets.UTF_8)
+                                val hdr = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ${bad.size}\r\nConnection: close\r\n\r\n"
+                                out.write(hdr.toByteArray(Charsets.US_ASCII))
+                                out.write(bad)
+                            }
+                        }
+                        out.flush()
+                    }
+                }
+            }
+        }.apply { isDaemon = true; start() }
+
+        val target = java.io.File.createTempFile("docpix_update_ok_", ".apk").apply { deleteOnExit() }
+        val badTarget = java.io.File.createTempFile("docpix_update_bad_", ".apk").apply { deleteOnExit() }
+        try {
+            val checker = UpdateChecker()
+            val percentages = ArrayList<Int>()
+            val result = kotlinx.coroutines.runBlocking {
+                checker.downloadApk("http://127.0.0.1:$port/release/DocPix.apk", target) { _, _, pct ->
+                    if (pct != null) percentages += pct
+                }
+            }
+            assertEquals(target.absolutePath, result.absolutePath)
+            assertEquals(payload.size.toLong(), result.length())
+            assertTrue(UpdateChecker.isValidApkHeader(result))
+            assertTrue(percentages.firstOrNull() == 0)
+            assertTrue(percentages.lastOrNull() == 100)
+
+            assertThrows(java.io.IOException::class.java) {
+                kotlinx.coroutines.runBlocking {
+                    checker.downloadApk("http://127.0.0.1:$port/broken", badTarget) { _, _, _ -> }
+                }
+            }
+        } finally {
+            runCatching { server.close() }
+            serverThread.join(1_000)
+            target.delete()
+            badTarget.delete()
+        }
+    }
 }

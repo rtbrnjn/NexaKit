@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.provider.Settings
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
@@ -90,4 +91,47 @@ object Actions {
             Toast.makeText(ctx, "No browser found to open $url", Toast.LENGTH_SHORT).show()
         }
     }
+
+    /** Returns whether this app is currently permitted to invoke the Android Package Installer. */
+    fun canInstallPackages(ctx: Context): Boolean = ctx.packageManager.canRequestPackageInstalls()
+
+    /** Builds the Settings intent for granting "Install unknown apps" specifically to DocPix. */
+    fun buildInstallPermissionIntent(ctx: Context): Intent =
+        Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            Uri.parse("package:${ctx.packageName}")
+        )
+
+    /**
+     * Builds a secure `FileProvider` install intent (`application/vnd.android.package-archive`)
+     * for an internally downloaded APK file.
+     */
+    fun buildInstallApkIntent(ctx: Context, apkFile: File): Intent {
+        val apkUri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", apkFile)
+        return buildInstallApkIntentForUri(apkUri, apkFile.name)
+    }
+
+    internal fun buildInstallApkIntentForUri(apkUri: Uri, displayName: String): Intent =
+        Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, APK_MIME)
+            clipData = ClipData.newRawUri(displayName, apkUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+    /** Launches the Android system Package Installer for [apkFile]. Returns true on success. */
+    fun installApk(ctx: Context, apkFile: File): Boolean {
+        if (!apkFile.exists() || apkFile.length() <= 0L) {
+            Toast.makeText(ctx, "File APK pembaruan tidak ditemukan.", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return try {
+            ctx.startActivity(buildInstallApkIntent(ctx, apkFile))
+            true
+        } catch (_: Exception) {
+            Toast.makeText(ctx, "Tidak dapat membuka pemasang paket Android.", Toast.LENGTH_LONG).show()
+            false
+        }
+    }
+
+    const val APK_MIME = "application/vnd.android.package-archive"
 }
