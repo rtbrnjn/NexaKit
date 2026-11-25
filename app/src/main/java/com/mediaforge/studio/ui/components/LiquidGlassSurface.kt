@@ -1,15 +1,10 @@
 package com.mediaforge.studio.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
+import android.os.Build
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -62,10 +57,18 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 
-/** Primary Haze state carrying both ambient backdrop (zIndex 0) and scrolling UI content (zIndex 1) for floating bars. */
+/**
+ * Native GPU RenderEffect frosted glass blur is available on Android 12+ (API 31+).
+ * Earlier Android versions (API 26–30) automatically fall back to a lightweight translucent
+ * monochrome surface without expensive CPU blur passes.
+ */
+fun supportsNativeLiquidGlassBlur(sdkInt: Int = Build.VERSION.SDK_INT): Boolean =
+    sdkInt >= Build.VERSION_CODES.S
+
+/** Primary Haze state carrying ambient backdrop + scrolling content for floating navigation chrome only (API 31+). */
 val LocalHazeState = compositionLocalOf<HazeState?> { null }
 
-/** Backdrop-only Haze state carrying only `LiquidGlassBackdrop` so cards blur glowing ambient blobs cleanly without cycles. */
+/** Retained for compatibility; static content cards intentionally avoid backdrop blur overdraw. */
 val LocalBackdropHazeState = compositionLocalOf<HazeState?> { null }
 
 @Composable
@@ -96,49 +99,41 @@ fun LiquidGlassBackdrop(
 ) {
     val bg = Glass.Bg
     val isDark = Glass.IsDark
-    val transition = rememberInfiniteTransition(label = "ambientMesh")
+    val activeChromeHaze = if (supportsNativeLiquidGlassBlur()) chromeHaze else null
 
-    val driftA by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(22_000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "blobA"
-    )
-    val driftB by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(26_000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "blobB"
-    )
-
-    val glowPrimary = if (isDark) Color.White else Color.White
+    val glowPrimary = Color.White
     val glowSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFFCBD5E1)
+    val alphaA = if (isDark) 0.036f else 0.54f
+    val alphaB = if (isDark) 0.028f else 0.20f
 
-    val alphaA = if (isDark) (0.032f + 0.012f * driftA) else (0.50f + 0.08f * driftA)
-    val alphaB = if (isDark) (0.025f + 0.010f * driftB) else (0.18f + 0.05f * driftB)
-
+    // Static cached mist avoids continuous 60/120fps infinite-transition invalidation on the backdrop.
     Box(modifier.fillMaxSize()) {
         Box(
             Modifier
                 .fillMaxSize()
-                .let { if (backdropHaze != null) it.hazeSource(backdropHaze, zIndex = 0f) else it }
-                .let { if (chromeHaze != null) it.hazeSource(chromeHaze, zIndex = 0f) else it }
+                .let { if (activeChromeHaze != null) it.hazeSource(activeChromeHaze, zIndex = 0f) else it }
                 .background(bg)
-                .drawBehind {
+                .drawWithCache {
                     val w = size.width
                     val h = size.height
-                    val centerA = Offset(w * (0.24f + 0.06f * driftA), h * (0.18f + 0.04f * driftB))
-                    drawCircle(
-                        brush = Brush.radialGradient(listOf(glowPrimary.copy(alpha = alphaA), Color.Transparent), centerA, w * 0.80f),
+                    val centerA = Offset(w * 0.26f, h * 0.19f)
+                    val radiusA = (w * 0.80f).coerceAtLeast(1f)
+                    val brushA = Brush.radialGradient(
+                        colors = listOf(glowPrimary.copy(alpha = alphaA), Color.Transparent),
                         center = centerA,
-                        radius = w * 0.80f
+                        radius = radiusA
                     )
-                    val centerB = Offset(w * (0.78f - 0.06f * driftB), h * (0.72f - 0.05f * driftA))
-                    drawCircle(
-                        brush = Brush.radialGradient(listOf(glowSecondary.copy(alpha = alphaB), Color.Transparent), centerB, w * 0.74f),
+                    val centerB = Offset(w * 0.76f, h * 0.71f)
+                    val radiusB = (w * 0.74f).coerceAtLeast(1f)
+                    val brushB = Brush.radialGradient(
+                        colors = listOf(glowSecondary.copy(alpha = alphaB), Color.Transparent),
                         center = centerB,
-                        radius = w * 0.74f
+                        radius = radiusB
                     )
+                    onDrawBehind {
+                        drawCircle(brush = brushA, center = centerA, radius = radiusA)
+                        drawCircle(brush = brushB, center = centerB, radius = radiusB)
+                    }
                 }
         )
         content()
@@ -151,7 +146,11 @@ fun LiquidBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
 
 // ------------------------------------------------------------------ True Liquid Glass Chrome & Docks
 
-/** Applies frosted Haze blur, diagonal specular border (35%->6% white), and soft ambient elevation shadow. */
+/**
+ * Applies Liquid Glass frosted chrome to floating navigation controls (top header, bottom dock,
+ * segmented bar). Uses native GPU RenderEffect Haze blur on Android 12+ (API 31+) and falls back
+ * gracefully to a clean, low-cost translucent monochrome sheet on Android 8–11 (API 26–30).
+ */
 @Composable
 fun Modifier.liquidGlassChrome(
     shape: Shape = RoundedCornerShape(28.dp),
@@ -163,15 +162,10 @@ fun Modifier.liquidGlassChrome(
 ): Modifier {
     val isDark = Glass.IsDark
     val fallbackBg = Glass.Surface
-    val borderBrush = diagonalGlassBorder(isDark = isDark, strong = strongBorder)
-    val hazeStyle = remember(fallbackBg, tintColor, blurRadius) {
-        HazeStyle(
-            backgroundColor = fallbackBg,
-            tint = HazeTint(tintColor),
-            blurRadius = blurRadius,
-            noiseFactor = 0.05f
-        )
-    }
+    val fallbackSheet = plainGlassSheetColor(isDark = isDark)
+    val borderColor = plainGlassBorderColor(isDark = isDark, strong = strongBorder)
+    val activeHaze = if (supportsNativeLiquidGlassBlur()) hazeState else null
+
     val base = this
         .shadow(
             elevation = if (isDark) shadowElevation else (shadowElevation * 0.65f),
@@ -180,12 +174,21 @@ fun Modifier.liquidGlassChrome(
             spotColor = Color.Black.copy(alpha = if (isDark) 0.42f else 0.08f)
         )
         .clip(shape)
-    val frosted = if (hazeState != null) {
-        base.hazeEffect(state = hazeState, style = hazeStyle)
+
+    val frosted = if (activeHaze != null) {
+        val hazeStyle = remember(fallbackBg, tintColor, blurRadius) {
+            HazeStyle(
+                backgroundColor = fallbackBg,
+                tint = HazeTint(tintColor),
+                blurRadius = blurRadius,
+                noiseFactor = 0.03f
+            )
+        }
+        base.hazeEffect(state = activeHaze, style = hazeStyle)
     } else {
-        base.background(tintColor)
+        base.background(fallbackSheet)
     }
-    return frosted.border(1.dp, borderBrush, shape)
+    return frosted.border(1.dp, borderColor, shape)
 }
 
 /** Floating frosted glass top header matching the Liquid Glass dock aesthetic. */
@@ -324,8 +327,13 @@ fun <T> GlassSegmentedBar(
     }
 }
 
-// ------------------------------------------------------------------ Layered Frosted Glass Cards
+// ------------------------------------------------------------------ Plain Translucent Content Cards (Zero Blur Overdraw)
 
+/**
+ * Monochrome translucent content card (`0.06f` Dark / `0.70f` Light + `1.dp` border).
+ * Intentionally avoids GPU RenderEffect blur and shadow overdraw inside scrolling lists, and only
+ * attaches press-scale interaction state when [onClick] is provided.
+ */
 @Composable
 fun LiquidGlassCard(
     modifier: Modifier = Modifier,
@@ -335,49 +343,31 @@ fun LiquidGlassCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(24.dp)
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (pressed && onClick != null) 0.982f else 1f,
-        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "press"
-    )
     val cardFill = Glass.CardFill
-    val fallbackBg = Glass.Surface
-    val isDark = Glass.IsDark
-    val borderBrush = diagonalGlassBorder(isDark = isDark)
-    val backdropHaze = LocalBackdropHazeState.current
-    val hazeStyle = remember(fallbackBg, cardFill) {
-        HazeStyle(
-            backgroundColor = fallbackBg,
-            tint = HazeTint(cardFill),
-            blurRadius = 24.dp,
-            noiseFactor = 0.04f
-        )
-    }
+    val borderColor = plainGlassBorderColor(isDark = Glass.IsDark)
 
-    var m = modifier
-        .graphicsLayer { scaleX = scale; scaleY = scale }
-        .shadow(
-            elevation = if (isDark) 8.dp else 6.dp,
-            shape = shape,
-            ambientColor = Color.Black.copy(alpha = if (isDark) 0.28f else 0.06f),
-            spotColor = Color.Black.copy(alpha = if (isDark) 0.25f else 0.05f)
+    val interactiveModifier = if (onClick != null) {
+        val interaction = remember { MutableInteractionSource() }
+        val pressed by interaction.collectIsPressedAsState()
+        val scale by animateFloatAsState(
+            targetValue = if (pressed) 0.982f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+            label = "press"
         )
-        .clip(shape)
-
-    m = if (backdropHaze != null) {
-        m.hazeEffect(state = backdropHaze, style = hazeStyle)
+        modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(shape)
+            .background(cardFill)
+            .border(1.dp, borderColor, shape)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
     } else {
-        m.background(cardFill)
+        modifier
+            .clip(shape)
+            .background(cardFill)
+            .border(1.dp, borderColor, shape)
     }
 
-    m = m.border(1.dp, borderBrush, shape)
-
-    if (onClick != null) {
-        m = m.clickable(interactionSource = interaction, indication = null, onClick = onClick)
-    }
-    Column(m.padding(contentPadding), content = content)
+    Column(interactiveModifier.padding(contentPadding), content = content)
 }
 
 @Composable

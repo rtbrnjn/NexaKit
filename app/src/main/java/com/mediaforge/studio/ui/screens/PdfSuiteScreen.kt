@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Rotate90DegreesCw
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +69,7 @@ import com.mediaforge.studio.ui.components.RecentCreationsCard
 import com.mediaforge.studio.ui.screens.pdf.CompressPdfScreen
 import com.mediaforge.studio.ui.screens.pdf.DocumentScannerScreen
 import com.mediaforge.studio.ui.screens.pdf.EditPdfScreen
+import com.mediaforge.studio.ui.screens.pdf.ExtractPdfTextScreen
 import com.mediaforge.studio.ui.screens.pdf.ImagesToPdfScreen
 import com.mediaforge.studio.ui.screens.pdf.MergePdfScreen
 import com.mediaforge.studio.ui.screens.pdf.PageNumbersScreen
@@ -82,9 +84,11 @@ import com.mediaforge.studio.ui.theme.Glass
 import com.mediaforge.studio.vm.CompressPdfViewModel
 import com.mediaforge.studio.vm.DocumentScannerViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
+import com.mediaforge.studio.vm.ExtractPdfTextViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
 import com.mediaforge.studio.vm.MergePdfViewModel
 import com.mediaforge.studio.vm.PageNumbersViewModel
+import com.mediaforge.studio.vm.PdfSource
 import com.mediaforge.studio.vm.PdfToDocxViewModel
 import com.mediaforge.studio.vm.PdfToImagesViewModel
 import com.mediaforge.studio.vm.ProtectPdfViewModel
@@ -103,6 +107,7 @@ enum class PdfTool(
     private val tone: ToolTone
 ) {
     SCAN_DOCUMENT("Scan Document", "Auto-crop paper to PDF/JPG", Icons.Rounded.DocumentScanner, ToolTone.PRIMARY),
+    EXTRACT_TEXT("Ekstrak Teks PDF", "Salin teks & OCR lokal ke AI", Icons.Rounded.TextFields, ToolTone.SECONDARY),
     PDF_TO_WORD("PDF to Word", "Extract text to .docx", Icons.Rounded.Description, ToolTone.PRIMARY),
     WORD_TO_PDF("Word to PDF", ".docx, Markdown or text", Icons.AutoMirrored.Rounded.TextSnippet, ToolTone.SECONDARY),
     IMAGES_TO_PDF("Images to PDF", "Photos to A4 or fit PDF", Icons.Rounded.PictureAsPdf, ToolTone.PRIMARY),
@@ -127,6 +132,7 @@ enum class PdfTool(
 @Composable
 fun PdfSuiteScreen(
     scannerVm: DocumentScannerViewModel = viewModel(),
+    extractTextVm: ExtractPdfTextViewModel = viewModel(),
     pdfToDocxVm: PdfToDocxViewModel = viewModel(),
     textToPdfVm: TextToPdfViewModel = viewModel(),
     imagesToPdfVm: ImagesToPdfViewModel = viewModel(),
@@ -143,7 +149,8 @@ fun PdfSuiteScreen(
     onToolHandled: () -> Unit = {},
     isTabActive: Boolean = true,
     recentFiles: List<SavedFile> = emptyList(),
-    onRemoveRecent: (SavedFile) -> Unit = {}
+    onRemoveRecent: (SavedFile) -> Unit = {},
+    onSendExtractedToAi: (PdfSource, String, Boolean) -> Unit = { _, _, _ -> }
 ) {
     var activeTool by rememberSaveable { mutableStateOf<PdfTool?>(null) }
 
@@ -171,6 +178,11 @@ fun PdfSuiteScreen(
                 onRemoveRecent = onRemoveRecent
             )
             PdfTool.SCAN_DOCUMENT -> DocumentScannerScreen(scannerVm, onBack = { activeTool = null })
+            PdfTool.EXTRACT_TEXT -> ExtractPdfTextScreen(
+                vm = extractTextVm,
+                onBack = { activeTool = null },
+                onSendToAi = onSendExtractedToAi
+            )
             PdfTool.PDF_TO_WORD -> PdfToDocxScreen(pdfToDocxVm, onBack = { activeTool = null })
             PdfTool.WORD_TO_PDF -> TextToPdfScreen(textToPdfVm, onBack = { activeTool = null })
             PdfTool.IMAGES_TO_PDF -> ImagesToPdfScreen(imagesToPdfVm, onBack = { activeTool = null })
@@ -243,7 +255,7 @@ private fun PdfHubGrid(
 
         LiquidGlassTopHeader(
             title = "DocPix · PDF Suite",
-            subtitle = "13 Offline Tools • On-Device Only",
+            subtitle = "14 Offline Tools • On-Device Only",
             hazeState = chromeHaze,
             modifier = Modifier
                 .align(Alignment.TopCenter)

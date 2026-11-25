@@ -93,6 +93,40 @@ class PdfAiViewModel @Inject constructor(
         }
     }
 
+    /** Loads pre-extracted PDF text directly from the PDF Suite Extractor and optionally summarizes it. */
+    fun loadExtractedDocument(
+        src: PdfSource,
+        text: String,
+        usedOcr: Boolean,
+        range: String = "all",
+        autoSummarize: Boolean = false
+    ) {
+        streamJob?.cancel()
+        _isStreaming.value = false
+        _activeEngine.value = null
+        history.clear()
+        _messages.value = emptyList()
+        _source.value = src
+        _pageRange.value = range.ifBlank { "all" }
+        _visionMode.value = false
+        _isScannedPdf.value = usedOcr
+        docText = text
+        pageImages = emptyList()
+        _extractInfo.value = if (usedOcr) {
+            "OCR lokal: ${text.length} karakter (dari PDF Suite)"
+        } else {
+            "${text.length} karakter lokal (dari PDF Suite)"
+        }
+        if (autoSummarize && text.isNotBlank()) {
+            val hasKey = settings.groqApiKey.value.isNotBlank() || settings.apiKey.value.isNotBlank()
+            if (connectivity.online.value && hasKey) {
+                runDocTask(DocTask.SUMMARY)
+            } else {
+                showInfo("Teks PDF sudah dimuat (${text.length} karakter). Sambungkan internet & pastikan API Key tersimpan di Settings untuk meringkas.")
+            }
+        }
+    }
+
     fun setPageRange(range: String) { _pageRange.value = range }
 
     fun setDepth(d: ExtractDepth) {

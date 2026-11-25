@@ -8,6 +8,7 @@ import com.mediaforge.studio.core.FileUtils
 import com.mediaforge.studio.pdf.PdfEngine
 import com.mediaforge.studio.pdf.PdfException
 import com.mediaforge.studio.pdf.PdfPageRenderer
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import java.io.Closeable
 import java.io.File
 import java.io.IOException
@@ -20,6 +21,7 @@ data class LockedPdfSource(val file: File, val name: String, val sizeBytes: Long
 object PdfInputs {
     /** Blocking; run on IO. Copies the Uri to cache and checks that PdfRenderer can open it. */
     fun load(app: Application, uri: Uri): PdfSource {
+        runCatching { PDFBoxResourceLoader.init(app.applicationContext) }
         val name = FileUtils.queryName(app, uri)
         val file = FileUtils.copyToCache(app, uri, "pdf_in", name)
         val pages = try {
@@ -37,6 +39,7 @@ object PdfInputs {
 
     /** Blocking; copies Uri to cache and inspects encryption status without failing on locked PDFs. */
     fun loadForUnlock(app: Application, uri: Uri): LockedPdfSource {
+        runCatching { PDFBoxResourceLoader.init(app.applicationContext) }
         val name = FileUtils.queryName(app, uri)
         val file = FileUtils.copyToCache(app, uri, "pdf_unlock", name)
         val encrypted = try {

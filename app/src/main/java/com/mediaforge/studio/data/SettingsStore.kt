@@ -16,6 +16,7 @@ import com.mediaforge.studio.ai.AiPreference
 import com.mediaforge.studio.pdf.PdfPageMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -122,11 +123,16 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     val totalBytesSaved: Flow<Long> = ds.data.map { (it[TOTAL_BYTES_SAVED] ?: 0L).coerceAtLeast(0L) }
 
     init {
+        // Defer EncryptedSharedPreferences Keystore crypto & DataStore migration past the first rendered frame.
         scope.launch(Dispatchers.IO) {
-            _apiKey.value = runCatching { secure.read(SecureKeyStore.KEY_GEMINI) }.getOrDefault("")
-            _groqApiKey.value = runCatching { secure.read(SecureKeyStore.KEY_GROQ) }.getOrDefault("")
+            delay(800L)
+            val storedGemini = runCatching { secure.read(SecureKeyStore.KEY_GEMINI) }.getOrDefault("")
+            val storedGroq = runCatching { secure.read(SecureKeyStore.KEY_GROQ) }.getOrDefault("")
+            if (_apiKey.value.isEmpty() && storedGemini.isNotEmpty()) _apiKey.value = storedGemini
+            if (_groqApiKey.value.isEmpty() && storedGroq.isNotEmpty()) _groqApiKey.value = storedGroq
         }
         scope.launch(Dispatchers.IO) {
+            delay(800L)
             runCatching {
                 ds.edit { prefs ->
                     val current = prefs[MODEL]

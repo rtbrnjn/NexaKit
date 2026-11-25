@@ -336,4 +336,43 @@ class MediaForgeUnitTest {
         )
         assertTrue(CompressOptions().stripExif)
     }
+
+    @Test
+    fun liquidGlassBlurGate_enablesNativeRenderEffectOnlyOnApi31Plus() {
+        assertFalse(com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur(26))
+        assertFalse(com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur(30))
+        assertTrue(com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur(31))
+        assertTrue(com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur(36))
+    }
+
+    @Test
+    fun fileUtilsCreateZip_packsMultipleFilesAndDeduplicatesNames() {
+        val f1 = java.io.File.createTempFile("docpix_zip_a_", ".jpg").apply {
+            writeBytes("photo-one-bytes".toByteArray())
+            deleteOnExit()
+        }
+        val f2 = java.io.File.createTempFile("docpix_zip_b_", ".jpg").apply {
+            writeBytes("photo-two-bytes".toByteArray())
+            deleteOnExit()
+        }
+        try {
+            val bos = ByteArrayOutputStream()
+            val count = FileUtils.createZip(listOf("produk.jpg" to f1, "produk.jpg" to f2), bos)
+            assertEquals(2, count)
+
+            val entries = LinkedHashMap<String, String>()
+            ZipInputStream(ByteArrayInputStream(bos.toByteArray())).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    entries[entry.name] = zis.readBytes().toString(Charsets.UTF_8)
+                    entry = zis.nextEntry
+                }
+            }
+            assertEquals("photo-one-bytes", entries["produk.jpg"])
+            assertEquals("photo-two-bytes", entries["produk (1).jpg"])
+        } finally {
+            f1.delete()
+            f2.delete()
+        }
+    }
 }

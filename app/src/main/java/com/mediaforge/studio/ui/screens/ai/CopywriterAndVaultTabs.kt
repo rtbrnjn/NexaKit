@@ -25,7 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -45,8 +47,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -73,6 +77,56 @@ internal fun copyToClipboard(ctx: Context, label: String, text: String) {
     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     cm.setPrimaryClip(ClipData.newPlainText(label, text))
     Toast.makeText(ctx, "$label copied", Toast.LENGTH_SHORT).show()
+}
+
+internal fun pasteFromClipboard(ctx: Context): String? {
+    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = cm.primaryClip ?: return null
+    if (clip.itemCount <= 0) return null
+    return clip.getItemAt(0).coerceToText(ctx)?.toString()?.takeIf { it.isNotBlank() }
+}
+
+@Composable
+internal fun QuickPasteResetRow(
+    hasText: Boolean,
+    onPaste: (String) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val ctx = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        GlassButton(
+            text = "Tempel",
+            icon = Icons.Rounded.ContentPaste,
+            primary = false,
+            compact = true,
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                val pasted = pasteFromClipboard(ctx)
+                if (pasted != null) {
+                    onPaste(pasted)
+                } else {
+                    Toast.makeText(ctx, "Clipboard kosong", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+        GlassButton(
+            text = "Bersihkan",
+            icon = Icons.Rounded.Close,
+            primary = false,
+            compact = true,
+            enabled = hasText,
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClear()
+            }
+        )
+    }
 }
 
 private enum class VaultFilter(val label: String) {
@@ -150,6 +204,12 @@ internal fun CopywriterTab(
             Spacer(Modifier.height(6.dp))
             ChoiceRow(CopyLanguage.entries, language, { it.label }, vm::setLanguage)
             Spacer(Modifier.height(10.dp))
+            QuickPasteResetRow(
+                hasText = notes.isNotBlank(),
+                onPaste = { pasted -> vm.setNotes(if (notes.isBlank()) pasted else "$notes $pasted") },
+                onClear = { vm.setNotes("") }
+            )
+            Spacer(Modifier.height(6.dp))
             GlassTextField(
                 value = notes,
                 onValueChange = vm::setNotes,

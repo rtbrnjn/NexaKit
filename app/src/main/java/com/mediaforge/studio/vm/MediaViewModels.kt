@@ -168,6 +168,68 @@ class CompressorViewModel @Inject constructor(
             } else showError("No image could be compressed.")
         }
     }
+
+    fun compressToZip() {
+        val list = _items.value
+        if (list.isEmpty()) return
+        val opts = _options.value
+        runTask("Menyiapkan arsip ZIP…", write = true) {
+            val tmpDir = File(ctx.cacheDir, "compress_zip_tmp").apply { mkdirs() }
+            val packed = ArrayList<Pair<String, File>>(list.size)
+            var before = 0L
+            var after = 0L
+            var gpsRemoved = 0
+            var failed = 0
+            try {
+                list.forEachIndexed { i, item ->
+                    setProgress("Mengompres ${i + 1} / ${list.size}", (i.toFloat() / list.size) * 0.85f)
+                    val tmp = File(tmpDir, "${System.nanoTime()}_${i}.${opts.format.ext}")
+                    try {
+                        val result = compressor.compress(item.uri, opts, tmp)
+                        val entryName = "${FileUtils.baseName(item.name)}_docpix.${opts.format.ext}"
+                        packed += entryName to tmp
+                        before += item.originalBytes
+                        after += result.bytes
+                        if (opts.stripExif && item.hasGps) gpsRemoved++
+                    } catch (_: Exception) {
+                        tmp.delete()
+                        failed++
+                    }
+                }
+                if (packed.isEmpty()) {
+                    showError("Tidak ada gambar yang berhasil dikompres untuk arsip ZIP.")
+                    return@runTask
+                }
+                setProgress("Mengemas ${packed.size} foto ke ZIP…", 0.92f)
+                val zipName = "DocPix_Compressed_${FileUtils.timestamp()}.zip"
+                val savedZip = Storage.save(
+                    ctx = ctx,
+                    kind = OutputKind.DOCUMENT,
+                    subFolder = null,
+                    displayName = zipName,
+                    mime = "application/zip",
+                    tool = "Image Compressor (ZIP)"
+                ) { out ->
+                    FileUtils.createZip(packed, out)
+                }
+                val zipBytes = savedZip.sizeBytes.takeIf { it > 0L } ?: after
+                val delta = (before - zipBytes).coerceAtLeast(0L)
+                settings.addBytesSaved(delta)
+                publish(listOf(savedZip))
+                val metaMsg = when {
+                    !opts.stripExif -> " EXIF dipertahankan."
+                    gpsRemoved > 0 -> " Lokasi GPS dihapus dari $gpsRemoved foto."
+                    else -> " Metadata EXIF dibersihkan."
+                }
+                showInfo(
+                    "Arsip ZIP tersimpan (${packed.size} foto): ${FileUtils.formatBytes(before)} → ${FileUtils.formatBytes(zipBytes)}.$metaMsg" +
+                        if (failed > 0) " $failed gagal." else ""
+                )
+            } finally {
+                packed.forEach { (_, f) -> f.delete() }
+            }
+        }
+    }
 }
 
 // =============================================================== Mockup

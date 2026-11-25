@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.PictureAsPdf
@@ -159,6 +160,7 @@ private fun RecentCreationRow(
                 Icon(
                     imageVector = when {
                         file.isPdf -> Icons.Rounded.PictureAsPdf
+                        file.isZip -> Icons.Rounded.FolderZip
                         file.name.endsWith(".docx", ignoreCase = true) -> Icons.Rounded.Description
                         else -> Icons.Rounded.Image
                     },

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.LocationOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -238,6 +239,18 @@ internal fun CompressorTab(vm: CompressorViewModel, topPadding: Dp, hazeState: H
             icon = Icons.Rounded.Download,
             enabled = items.isNotEmpty(),
             onClick = vm::compressAll,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        GlassButton(
+            text = if (items.isEmpty()) "Simpan sebagai ZIP" else "Simpan sebagai ZIP (${items.size} foto)",
+            icon = Icons.Rounded.FolderZip,
+            primary = false,
+            enabled = items.isNotEmpty(),
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                vm.compressToZip()
+            },
             modifier = Modifier.fillMaxWidth()
         )
     }

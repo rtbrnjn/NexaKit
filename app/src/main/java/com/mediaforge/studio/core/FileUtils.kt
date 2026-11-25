@@ -3,11 +3,15 @@ package com.mediaforge.studio.core
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.OutputStream
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 object FileUtils {
 
@@ -112,4 +116,33 @@ object FileUtils {
 
     fun savingsPercent(before: Long, after: Long): Int =
         if (before <= 0) 0 else (((before - after).toDouble() / before) * 100).toInt()
+
+    /**
+     * Packages [entries] (`desiredEntryName to sourceFile`) into a clean ZIP archive on [out].
+     * Duplicate entry names are deduplicated automatically (`photo.jpg`, `photo (1).jpg`).
+     */
+    fun createZip(entries: List<Pair<String, File>>, out: OutputStream): Int {
+        val usedNames = HashSet<String>(entries.size)
+        var written = 0
+        ZipOutputStream(BufferedOutputStream(out)).use { zos ->
+            entries.forEach { (rawName, file) ->
+                if (!file.exists() || !file.isFile) return@forEach
+                val clean = sanitize(rawName)
+                val stem = clean.substringBeforeLast('.', clean)
+                val ext = clean.substringAfterLast('.', "")
+                var candidate = clean
+                var suffix = 1
+                while (!usedNames.add(candidate.lowercase(Locale.US))) {
+                    candidate = if (ext.isEmpty()) "$stem ($suffix)" else "$stem ($suffix).$ext"
+                    suffix++
+                }
+                zos.putNextEntry(ZipEntry(candidate))
+                file.inputStream().use { input -> input.copyTo(zos, 64 * 1024) }
+                zos.closeEntry()
+                written++
+            }
+            zos.flush()
+        }
+        return written
+    }
 }

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Share
@@ -388,7 +389,11 @@ fun SettingsScreen(vm: SettingsViewModel) {
                                         .background(Glass.Cyan.copy(alpha = if (Glass.IsDark) 0.16f else 0.12f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Rounded.Description, null, tint = Glass.Cyan)
+                                    Icon(
+                                        if (f.isZip) Icons.Rounded.FolderZip else Icons.Rounded.Description,
+                                        null,
+                                        tint = Glass.Cyan
+                                    )
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
@@ -438,7 +443,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 Spacer(Modifier.height(6.dp))
                 Text("DocPix v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.titleMedium, color = Glass.TextPrimary)
                 Spacer(Modifier.height(4.dp))
-                Hint("Monochrome Liquid Glass Edition • Hilt DI • ML Kit Document Scanner • Dual-Engine Groq LPU + Gemini 3.8 SSE • Optimized ML Kit OCR • Offline Media & 13-Tool PDF Suite.")
+                Hint("Monochrome Liquid Glass Edition • Hilt DI • ML Kit Document Scanner • Dual-Engine Groq LPU + Gemini 3.8 SSE • Optimized ML Kit OCR • Offline Media & 14-Tool PDF Suite.")
                 Spacer(Modifier.height(6.dp))
                 Text("Package: com.mediaforge.studio", style = MaterialTheme.typography.labelSmall, color = Glass.TextDim)
                 Spacer(Modifier.height(12.dp))

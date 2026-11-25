@@ -37,7 +37,7 @@ class AiVaultViewModel @Inject constructor(
     private val dao: AiHistoryDao
 ) : ViewModel() {
     val entries: StateFlow<List<AiHistoryEntity>> =
-        dao.observeAll().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        dao.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
 
     fun delete(id: Long) {
         viewModelScope.launch(Dispatchers.IO) { dao.deleteById(id) }
@@ -86,16 +86,16 @@ class SettingsViewModel @Inject constructor(
 
     val savedKey: StateFlow<String> = settings.apiKey
     val savedGroqKey: StateFlow<String> = settings.groqApiKey
-    val themeMode: StateFlow<ThemeMode> = settings.themeMode.stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
-    val aiPreference: StateFlow<AiPreference> = settings.aiPreference.stateIn(viewModelScope, SharingStarted.Eagerly, AiPreference.AUTO)
-    val model: StateFlow<String> = settings.model.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_MODEL)
-    val models: StateFlow<List<String>> = settings.knownModels.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_MODELS)
-    val autoShow: StateFlow<Boolean> = settings.autoShowResults.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val defaultQuality: StateFlow<Int> = settings.defaultQuality.stateIn(viewModelScope, SharingStarted.Eagerly, 80)
-    val defaultPdfPageMode: StateFlow<PdfPageMode> = settings.defaultPdfPageMode.stateIn(viewModelScope, SharingStarted.Eagerly, PdfPageMode.A4_PORTRAIT)
-    val autoStripExif: StateFlow<Boolean> = settings.autoStripExif.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val totalBytesSaved: StateFlow<Long> = settings.totalBytesSaved.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
-    val history: StateFlow<List<SavedFile>> = historyStore.entries.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val themeMode: StateFlow<ThemeMode> = settings.themeMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), ThemeMode.SYSTEM)
+    val aiPreference: StateFlow<AiPreference> = settings.aiPreference.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), AiPreference.AUTO)
+    val model: StateFlow<String> = settings.model.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), DEFAULT_MODEL)
+    val models: StateFlow<List<String>> = settings.knownModels.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), DEFAULT_MODELS)
+    val autoShow: StateFlow<Boolean> = settings.autoShowResults.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
+    val defaultQuality: StateFlow<Int> = settings.defaultQuality.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), 70)
+    val defaultPdfPageMode: StateFlow<PdfPageMode> = settings.defaultPdfPageMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), PdfPageMode.A4_PORTRAIT)
+    val autoStripExif: StateFlow<Boolean> = settings.autoStripExif.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), true)
+    val totalBytesSaved: StateFlow<Long> = settings.totalBytesSaved.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), 0L)
+    val history: StateFlow<List<SavedFile>> = historyStore.entries.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
     val online: StateFlow<Boolean> = connectivity.online
 
     private val _cacheBytes = MutableStateFlow(0L)
@@ -120,7 +120,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settings.groqApiKey.collect { if (!editedGroq) groqKeyInput.value = it }
         }
-        refreshCacheSize()
     }
 
     fun onKeyChanged(v: String) {

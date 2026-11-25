@@ -27,6 +27,7 @@ data class SavedFile(
 ) {
     val isImage get() = mime.startsWith("image/")
     val isPdf get() = mime == "application/pdf"
+    val isZip get() = mime == "application/zip" || name.endsWith(".zip", ignoreCase = true)
 }
 
 /**

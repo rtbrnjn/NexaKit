@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -74,7 +75,13 @@ class NexaKitMainNavigationUiTest {
         composeRule.onRoot().performTouchInput { swipeLeft() }
         composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
         composeRule.onNodeWithText("Scan Document").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Recent Creations")[1].performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Ekstrak Teks PDF").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Recent Creations").onLast().performScrollTo().assertIsDisplayed()
+
+        composeRule.onNodeWithText("Ekstrak Teks PDF").performScrollTo().performClick()
+        composeRule.onNodeWithText("Pilih File PDF").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
 
         composeRule.onRoot().performTouchInput { swipeLeft() }
         composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
@@ -86,16 +93,23 @@ class NexaKitMainNavigationUiTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("DocPix · PDF Suite").assertIsDisplayed()
 
-        // 3. Navigate to AI Studio and switch to AI Vault tab
+        // 3. Navigate to AI Studio, verify Copywriter Quick Paste & Reset, and switch to AI Vault tab
         composeRule.onNodeWithText("AI Studio").performClick()
         composeRule.onNodeWithText("DocPix · AI Studio").assertIsDisplayed()
+        composeRule.onNodeWithText("Copywriter").performClick()
+        composeRule.onNodeWithText("Tempel").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Bersihkan").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithText("Optional Product Notes").performScrollTo().performTextInput("Kopi arabika 250g")
+        composeRule.onNodeWithText("Bersihkan").assertIsEnabled().performClick()
+        composeRule.onNodeWithText("Bersihkan").assertIsNotEnabled()
+
         composeRule.onNodeWithText("AI Vault").performClick()
         composeRule.onNodeWithText("AI History Vault is empty").assertIsDisplayed()
 
         // 4. Navigate to Settings, verify About DocPix + Update Checker button, API Key Guide & Feedback Sheet
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("DocPix · Settings").assertIsDisplayed()
-        composeRule.onNodeWithText("DocPix v1.4.4 (Build 11)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("DocPix v1.4.5 (Build 12)").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Cek Pembaruan").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithText("Cara Mendapatkan API Key Gratis?").performScrollTo().performClick()
@@ -369,5 +383,29 @@ class LiquidGlassComponentsUiTest {
 
         composeRule.onNodeWithContentDescription("Hapus DocPix_File_1.pdf dari riwayat").performClick()
         org.junit.Assert.assertEquals("DocPix_File_1.pdf", removed?.name)
+    }
+
+    @Test
+    @Config(sdk = [30])
+    fun preAndroid12Fallback_rendersLiquidGlassChromeAndCardsWithoutNativeBlur() {
+        org.junit.Assert.assertFalse(com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur())
+        composeRule.setContent {
+            MediaForgeTheme(themeMode = ThemeMode.DARK) {
+                LiquidGlassBackdrop(chromeHaze = null) {
+                    Column {
+                        LiquidGlassTopHeader(
+                            title = "DocPix · API 30 Fallback",
+                            subtitle = "Plain translucent fallback active",
+                            hazeState = null
+                        )
+                        com.mediaforge.studio.ui.components.LiquidGlassCard {
+                            com.mediaforge.studio.ui.components.SectionLabel("Static Content Surface")
+                        }
+                    }
+                }
+            }
+        }
+        composeRule.onNodeWithText("DocPix · API 30 Fallback").assertIsDisplayed()
+        composeRule.onNodeWithText("STATIC CONTENT SURFACE").assertIsDisplayed()
     }
 }

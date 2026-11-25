@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mediaforge.studio.core.Permissions
+import com.mediaforge.studio.core.SavedFile
 import com.mediaforge.studio.data.SettingsStore
 import com.mediaforge.studio.data.ThemeMode
 import com.mediaforge.studio.ui.components.LiquidGlassBackdrop
@@ -76,6 +77,7 @@ import com.mediaforge.studio.ui.components.LocalHazeState
 import com.mediaforge.studio.ui.components.LocalPagerGestureCoordinator
 import com.mediaforge.studio.ui.components.PagerGestureCoordinator
 import com.mediaforge.studio.ui.components.liquidGlassChrome
+import com.mediaforge.studio.ui.components.supportsNativeLiquidGlassBlur
 import com.mediaforge.studio.ui.screens.AiTool
 import com.mediaforge.studio.ui.screens.AppUpdateDialog
 import com.mediaforge.studio.ui.screens.GeminiAiScreen
@@ -97,6 +99,7 @@ import com.mediaforge.studio.vm.CompressorViewModel
 import com.mediaforge.studio.vm.CopywriterViewModel
 import com.mediaforge.studio.vm.DocumentScannerViewModel
 import com.mediaforge.studio.vm.EditPdfViewModel
+import com.mediaforge.studio.vm.ExtractPdfTextViewModel
 import com.mediaforge.studio.vm.ImagesToPdfViewModel
 import com.mediaforge.studio.vm.MergePdfViewModel
 import com.mediaforge.studio.vm.MockupViewModel
@@ -112,10 +115,13 @@ import com.mediaforge.studio.vm.UnlockPdfViewModel
 import com.mediaforge.studio.vm.WatermarkPdfViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
@@ -191,10 +197,10 @@ private fun MediaForgeRoot(
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
-    val backdropHazeState = rememberHazeState()
-    val chromeHazeState = rememberHazeState()
+    val chromeHazeState = if (supportsNativeLiquidGlassBlur()) rememberHazeState() else null
     val pagerGestureCoordinator = remember { PagerGestureCoordinator() }
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { TopTab.entries.size })
+    val currentTabPage by remember(pagerState) { derivedStateOf { pagerState.currentPage } }
 
     // Activity-scoped ViewModels so incoming Android Share intents can populate any tool directly.
     val settingsVm: SettingsViewModel = viewModel()
@@ -202,6 +208,7 @@ private fun MediaForgeRoot(
     val mockupVm: MockupViewModel = viewModel()
     val collageVm: CollageViewModel = viewModel()
     val scannerVm: DocumentScannerViewModel = viewModel()
+    val extractTextVm: ExtractPdfTextViewModel = viewModel()
     val pdfToDocxVm: PdfToDocxViewModel = viewModel()
     val textToPdfVm: TextToPdfViewModel = viewModel()
     val imagesToPdfVm: ImagesToPdfViewModel = viewModel()
@@ -221,6 +228,7 @@ private fun MediaForgeRoot(
     var requestedMediaTool by remember { mutableStateOf<MediaTool?>(null) }
     var requestedPdfTool by remember { mutableStateOf<PdfTool?>(null) }
     var requestedAiTool by remember { mutableStateOf<AiTool?>(null) }
+    var recentFiles by remember { mutableStateOf<List<SavedFile>>(emptyList()) }
 
     val results by coordinator.results.collectAsState()
     val incomingShare by coordinator.incomingShare.collectAsState()
@@ -228,7 +236,6 @@ private fun MediaForgeRoot(
     val pendingPdfSave by coordinator.pendingPdfSave.collectAsState()
     val savingPendingPdf by coordinator.savingPendingPdf.collectAsState()
     val completionHapticTick by coordinator.completionHapticTick.collectAsState()
-    val recentFiles by settingsVm.history.collectAsState()
     val showUpdateDialog by settingsVm.showUpdateDialog.collectAsState()
     val availableUpdate by settingsVm.availableUpdate.collectAsState()
 
@@ -236,8 +243,13 @@ private fun MediaForgeRoot(
         scope.launch { settings.setPermissionAsked(true) }
     }
 
+    // Defer disk history scan, permission query, and GitHub update check until after frame 0 renders smoothly.
     LaunchedEffect(Unit) {
-        val alreadyAsked = settings.permissionAsked.first()
+        delay(800L)
+        launch {
+            settingsVm.history.collect { recentFiles = it }
+        }
+        val alreadyAsked = withContext(Dispatchers.IO) { settings.permissionAsked.first() }
         if (!alreadyAsked && !Permissions.granted(ctx)) {
             permLauncher.launch(Permissions.required())
         }
@@ -328,12 +340,12 @@ private fun MediaForgeRoot(
     }
 
     CompositionLocalProvider(
-        LocalBackdropHazeState provides backdropHazeState,
+        LocalBackdropHazeState provides null,
         LocalHazeState provides chromeHazeState,
         LocalPagerGestureCoordinator provides pagerGestureCoordinator
     ) {
         LiquidGlassBackdrop(
-            backdropHaze = backdropHazeState,
+            backdropHaze = null,
             chromeHaze = chromeHazeState
         ) {
             Box(
@@ -343,7 +355,7 @@ private fun MediaForgeRoot(
             ) {
                 HorizontalPager(
                     state = pagerState,
-                    beyondViewportPageCount = 1,
+                    beyondViewportPageCount = 0,
                     userScrollEnabled = !pagerGestureCoordinator.isLocked,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
@@ -358,12 +370,13 @@ private fun MediaForgeRoot(
                                 requestedPdfTool = PdfTool.SCAN_DOCUMENT
                                 navigateTo(TopTab.PDF_SUITE)
                             },
-                            isTabActive = pagerState.currentPage == TopTab.MEDIA_LAB.ordinal,
+                            isTabActive = currentTabPage == TopTab.MEDIA_LAB.ordinal,
                             recentFiles = recentFiles,
                             onRemoveRecent = { settingsVm.forget(it, deleteFile = false) }
                         )
                         TopTab.PDF_SUITE -> PdfSuiteScreen(
                             scannerVm = scannerVm,
+                            extractTextVm = extractTextVm,
                             pdfToDocxVm = pdfToDocxVm,
                             textToPdfVm = textToPdfVm,
                             imagesToPdfVm = imagesToPdfVm,
@@ -378,9 +391,20 @@ private fun MediaForgeRoot(
                             unlockVm = unlockVm,
                             requestedTool = requestedPdfTool,
                             onToolHandled = { requestedPdfTool = null },
-                            isTabActive = pagerState.currentPage == TopTab.PDF_SUITE.ordinal,
+                            isTabActive = currentTabPage == TopTab.PDF_SUITE.ordinal,
                             recentFiles = recentFiles,
-                            onRemoveRecent = { settingsVm.forget(it, deleteFile = false) }
+                            onRemoveRecent = { settingsVm.forget(it, deleteFile = false) },
+                            onSendExtractedToAi = { src, text, usedOcr ->
+                                pdfAiVm.loadExtractedDocument(
+                                    src = src,
+                                    text = text,
+                                    usedOcr = usedOcr,
+                                    range = extractTextVm.pageRange.value,
+                                    autoSummarize = true
+                                )
+                                requestedAiTool = AiTool.PDF_CHAT
+                                navigateTo(TopTab.GEMINI_AI)
+                            }
                         )
                         TopTab.GEMINI_AI -> GeminiAiScreen(
                             settingsVm = settingsVm,
@@ -471,15 +495,16 @@ private fun LiquidGlassBottomBar(
     ) {
         val tabWidth = maxWidth / tabs.size
         val tabWidthPx = with(density) { tabWidth.toPx() }
-        val pageFraction = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-            .coerceIn(0f, tabs.lastIndex.toFloat())
-        val indicatorOffsetPx = (tabWidthPx * pageFraction).roundToInt()
 
         Box(Modifier.fillMaxWidth().height(54.dp)) {
-            // Sliding liquid pill synced 1:1 with HorizontalPager scroll offset
+            // Sliding liquid pill reads pager offset during layout placement (0 recompositions per swipe frame)
             Box(
                 Modifier
-                    .offset { IntOffset(indicatorOffsetPx, 0) }
+                    .offset {
+                        val pageFraction = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                            .coerceIn(0f, tabs.lastIndex.toFloat())
+                        IntOffset((tabWidthPx * pageFraction).roundToInt(), 0)
+                    }
                     .width(tabWidth)
                     .fillMaxHeight()
                     .clip(pillShape)

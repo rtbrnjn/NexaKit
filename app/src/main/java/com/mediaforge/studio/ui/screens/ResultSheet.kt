@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -129,7 +130,11 @@ fun ResultSheet(files: List<SavedFile>?, onDismiss: () -> Unit) {
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        if (f.isPdf || f.name.endsWith(".docx", true)) Icons.Rounded.Description else Icons.Rounded.Image,
+                                        when {
+                                            f.isZip -> Icons.Rounded.FolderZip
+                                            f.isPdf || f.name.endsWith(".docx", true) -> Icons.Rounded.Description
+                                            else -> Icons.Rounded.Image
+                                        },
                                         null,
                                         tint = Glass.Cyan
                                     )

@@ -260,6 +260,12 @@ internal fun PdfAssistantTab(
                     }
                 }
 
+                QuickPasteResetRow(
+                    hasText = question.isNotBlank(),
+                    onPaste = { pasted -> question = if (question.isBlank()) pasted else "$question $pasted" },
+                    onClear = { question = "" }
+                )
+
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     GlassTextField(
                         value = question,
